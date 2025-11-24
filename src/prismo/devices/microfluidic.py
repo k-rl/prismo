@@ -22,7 +22,7 @@ class Valves:
 
     def __setitem__(self, key, value):
         addr = key if isinstance(key, int) else self._valves.index(key)
-        self._client.write_coil(addr, (value == "off") or (value == 0))
+        self._client.write_coil(addr, (value == "open") or (value == 0))
 
 
 class Mux:
@@ -165,32 +165,23 @@ class MiniChip:
 
     @btn.setter
     def btn(self, new_state):
-        if new_state == "open" or not new_state:
-            self._valves[self._buttons] = "off"
-        else:
-            self._valves[self._buttons] = "on"
+        self._valves[self._buttons] = new_state
 
     @property
     def out(self):
-        return "closed" if self._valves[self._out] else "open"
+        return self._valves[self._out]
 
     @out.setter
     def out(self, new_state):
-        if new_state == "open" or not new_state:
-            self._valves[self._out] = "off"
-        else:
-            self._valves[self._out] = "on"
+        self._valves[self._out] = new_state
 
     @property
     def snw(self):
-        return "closed" if self._valves[self._sandwiches] else "open"
+        return self._valves[self._sandwiches]
 
     @snw.setter
     def snw(self, new_state):
-        if new_state == "open" or not new_state:
-            self._valves[self._sandwiches] = "off"
-        else:
-            self._valves[self._sandwiches] = "on"
+        self._valves[self._sandwiches] = new_state
 
 
 class Chip:
@@ -203,13 +194,13 @@ class Chip:
 
     def __getattr__(self, key):
         if key in self._mapping:
-            return "closed" if self._valves[self._mapping[key]] else "open"
+            return self._valves[self._mapping[key]]
         else:
             return self.__getattribute__(key)
 
     def __setattr__(self, key, state):
         if key in self._mapping:
-            self._valves[self._mapping[key]] = "off" if state == "open" or not state else "on"
+            self._valves[self._mapping[key]] = state
         else:
             super().__setattr__(key, state)
 
