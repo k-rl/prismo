@@ -1,9 +1,17 @@
 import logging
+import time
 
 from ..microfluidic import Chip
 from .general import _check_valve_mapping, sleep
 
 logger = logging.getLogger(__name__)
+
+
+def sleep(seconds: float):
+    """Interruptable sleep."""
+    start = time.time()
+    while time.time() - start < seconds:
+        time.sleep(0.1)
 
 
 def deadend_fill(
