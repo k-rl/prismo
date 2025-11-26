@@ -112,15 +112,15 @@ class TreeValves:
                 return "invalid"
 
     @state.setter
-    def state(self, new_state: str | int):
-        if new_state == "open":
+    def state(self, label: str | int):
+        if label == "open":
             for v in self._all:
                 self._driver[v] = "open"
-        elif new_state == "closed":
+        elif label == "closed":
             for v in self._all:
                 self._driver[v] = "closed"
         else:
-            new_state = self._states_to_labels[new_state]
+            new_state = self._labels_to_states[label]
             for v in self._all:
                 self._driver[v] = "closed"
 
