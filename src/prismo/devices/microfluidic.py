@@ -144,17 +144,17 @@ class Chip:
             str, dict[Literal["states", 0, 1], list[str] | dict[str, str]] | list[int] | int
         ],
     ):
-        # We can't directly set self._mapping = mapping since our overriden __setattr__
-        # depends on self._mapping being set.
         mapping = {
             k: TreeValves(zeros=v[0], ones=v[1], states=v.get("states"), driver=driver)
             if isinstance(v, dict)
             else Valves(valves=v, driver=driver)
             for k, v in mapping.items()
         }
+        # We can't directly set self._mapping = mapping since our overriden __setattr__
+        # depends on self._mapping being set. Same for name and _driver.
         super().__setattr__("_mapping", mapping)
-        self.name = name
-        self._driver = driver
+        super().__setattr__("name", name)
+        super().__setattr__("_driver", driver)
 
     def __getattr__(self, key: str) -> Literal["closed", "open"] | Valves:
         v = self._mapping[key]
