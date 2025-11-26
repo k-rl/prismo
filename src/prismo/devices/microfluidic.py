@@ -76,7 +76,7 @@ class TreeValves:
         for v in states.values():
             if len(v) != len(zeros):
                 raise ValueError(f"Invalid state {v}. States must be of length {len(zeros)}.")
-            elif not all(v[i] in ["0", "1", "_", "x"]):
+            elif not all(x in ["0", "1", "_", "x"] for x in v):
                 raise ValueError(f"Invalid state {v}. States must only contain 0, 1, _, and x.")
 
         self._labels_to_states = states
