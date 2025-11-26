@@ -147,7 +147,7 @@ class Chip:
         # We can't directly set self._mapping = mapping since our overriden __setattr__
         # depends on self._mapping being set.
         mapping = {
-            k: TreeValves(zeros=v[0], ones=v[1], states=v["states"], driver=driver)
+            k: TreeValves(zeros=v[0], ones=v[1], states=v.get("states"), driver=driver)
             if isinstance(v, dict)
             else Valves(valves=v, driver=driver)
             for k, v in mapping.items()
