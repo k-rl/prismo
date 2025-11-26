@@ -40,6 +40,15 @@ class Valves:
         self._valves = utils.to_list(valves)
         self._driver = driver
 
+    def __eq__(self, other: str):
+        is_open = [self._driver[v] == "open" for v in self._valves]
+        if other == "open":
+            return all(is_open)
+        elif other == "closed":
+            return not any(is_open)
+        else:
+            return False
+
     def __getitem__(self, idx: int) -> Literal["closed", "open"]:
         return self._driver[self._valves[idx]]
 
@@ -51,7 +60,7 @@ class Valves:
 
     def __repr__(self):
         # TODO: Revisit whether we want repr to be unambiguous.
-        return ", ".join(str(self[k]) for k in range(len(self._valves)))
+        return ", ".join(f"'{self[k]}'" for k in range(len(self._valves)))
 
 
 class TreeValves:
@@ -159,8 +168,6 @@ class Chip:
         v = self._mapping[key]
         if isinstance(v, State):
             return v.state
-        elif len(v) == 1:
-            return v[0]
         else:
             return v
 
