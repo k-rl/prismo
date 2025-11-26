@@ -51,7 +51,7 @@ class Valves:
 
     def __repr__(self):
         # TODO: Revisit whether we want repr to be unambiguous.
-        return ", ".join(str(self[k]) for k in self._valves)
+        return ", ".join(str(self[k]) for k in range(len(self._valves)))
 
 
 class TreeValves:
