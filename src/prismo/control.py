@@ -102,12 +102,8 @@ def load(config, path=None):
                 devices.append(dev.manual.Objective(name, **params))
             case "microfluidic_chip":
                 devices.append(dev.microfluidic.Chip(name, valves, **params))
-            case "microfluidic_minichip":
-                devices.append(dev.microfluidic.MiniChip(name, valves, **params))
-            case "microfluidic_mux":
-                devices.append(dev.microfluidic.Mux(name, valves, **params))
             case "microfluidic_valves":
-                devices.append(dev.microfluidic.Valves(name, **params))
+                devices.append(dev.microfluidic.ValveDriver(name, **params))
                 valves = devices[-1]
             case "sola_light":
                 devices.append(dev.lumencor.Light(name, core, version="sola", **params))
