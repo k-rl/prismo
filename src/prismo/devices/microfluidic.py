@@ -67,7 +67,7 @@ class TreeValves:
         if states is None:
             states = [i for i in range(2 ** len(zeros))]
         if isinstance(states, list):
-            states = {s: f"{i:{len(zeros)}b}" for i, s in enumerate(states)}
+            states = {s: f"{i:0{len(zeros)}b}" for i, s in enumerate(states)}
         # Make sure we have all states where one path is open.
         for i in range(2 ** len(zeros)):
             if i not in states:
