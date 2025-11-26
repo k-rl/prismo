@@ -7,7 +7,7 @@ from .general import _check_valve_mapping, _timestamp, sleep
 def deadend_fill(
     chip: Chip,
     buffer: str,
-) -> None:
+):
     """Dead-end fill the device.
 
     Parameters:
@@ -30,7 +30,7 @@ def purge_common_inlet(
     wait_time: int = 5,
     keep_flow_open: bool = True,
     verbose: bool = True,
-) -> None:
+):
     """Purge air from a common inlet for a set amount of time.
 
     Expects that flow and waste inlet valves are in the common valve
@@ -85,9 +85,9 @@ def purge_common_inlet(
 def purge_block_inlets(
     chip: Chip,
     wait_time: int = 5,
-    keep_block1_open: bool = False,
+    keep_block0_open: bool = False,
     verbose: bool = True,
-) -> None:
+):
     """Purges all four block-specific inlets for a set amount of time.
 
     Expects that block inlets contain low-pressure lines to flow to the
@@ -99,24 +99,10 @@ def purge_block_inlets(
         The prismo.devices.microfluidic.Chip object for 4-block device.
     wait_time :
         Number of seconds to purge `flow`.
-    keep_block1_open :
-        Whether to keep the block1 control valve open. (Dead-end fill.)
+    keep_block0_open :
+        Whether to keep the block1 control valve open.
     verbose :
         Whether to print each step.
-
-    Returns:
-    --------
-    None :
-        This function controls flow on a 4-block device; nothing is
-        returned.
-
-    Notes:
-    ------
-    None.
-
-    Examples:
-    ---------
-    >>> purge_block_inlets(c.chip, wait_time=10, keep_block1_open=True)
     """
     # Close inlets 1 and 2
     chip.inlet = "closed"
@@ -127,7 +113,7 @@ def purge_block_inlets(
     chip.block_inlet = "open"
     sleep(wait_time)
 
-    if not keep_block1_open:
+    if not keep_block0_open:
         if verbose:
             print("Leaving block 1 open.")
         chip.block_inlet[0] = "closed"
@@ -139,7 +125,7 @@ def purge_block_inlets(
 def pattern_anti_gfp(
     chip: Chip,
     waste: str = "waste1",
-    bbsa: str = "bBSA2",
+    bbsa: str = "bbsa2",
     na: str = "na3",
     anti_gfp: str = "in4",
     pbs: str = "in5",
@@ -322,7 +308,7 @@ def sds_wash(
     wash_lagoons: bool = True,
     keep_neck_open: bool = False,
     verbose: bool = True,
-) -> None:
+):
     """Wash the chip with SDS one time. To be used within a loop to repeat
     washes multiple times and acquire images after each wash.
 
