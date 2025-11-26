@@ -232,7 +232,7 @@ class ValveControllerServer:
         return {path + "/valves": self.get_valves, path + "/set_valve": self.set_valve}
 
     def get_valves(self):
-        return self._valves.valves
+        return {k: v == "closed" for k, v in self._valves.valves.items()}
 
     def set_valve(self, idx, value):
-        self._valves[idx] = value
+        self._valves[idx] = "closed" if value else "open"
