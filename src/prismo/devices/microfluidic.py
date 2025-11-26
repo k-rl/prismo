@@ -3,8 +3,8 @@ from typing import Literal
 import numpy as np
 import pymodbus.client
 
-from prismo import utils
-from prismo.devices import State
+from .. import utils
+from .protocols import State
 
 
 class ValveDriver:
