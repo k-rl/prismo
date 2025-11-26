@@ -339,6 +339,9 @@ def run(run_func):
             self._running.set()
             self._quit.set()
 
+        def join(self):
+            self._worker.join()
+
     return Runner()
 
 

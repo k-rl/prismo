@@ -1,9 +1,23 @@
 import logging
 import time
 
-from ..microfluidic import Chip
+from .devices import Chip
+from .gui import run
 
 logger = logging.getLogger(__name__)
+
+
+def run_async(func):
+    def wrapper(blocking=False, *args, **kwargs):
+        def run_func():
+            yield from func(*args, **kwargs)
+
+        runner = run(run_func)
+        if blocking:
+            runner.join()
+        return runner
+
+    return wrapper
 
 
 def sleep(seconds: float):
@@ -11,6 +25,7 @@ def sleep(seconds: float):
     start = time.time()
     while time.time() - start < seconds:
         time.sleep(0.1)
+        yield
 
 
 def deadend_fill(
@@ -32,6 +47,7 @@ def deadend_fill(
     chip[buffer] = "open"
 
 
+@run_async
 def purge_common_inlet(
     chip: Chip,
     flow: str,
@@ -77,7 +93,7 @@ def purge_common_inlet(
     logger.info(f"Flowing {flow} to {waste} for {wait_time} seconds.")
     chip[flow] = "open"
     chip[waste] = "open"
-    sleep(wait_time)
+    yield from sleep(wait_time)
 
     if not keep_flow_open:
         chip[flow] = "closed"
@@ -86,6 +102,7 @@ def purge_common_inlet(
     logger.info(f"Done flowing {flow} to {waste}.")
 
 
+@run_async
 def purge_block_inlets(
     chip: Chip,
     wait_time: int = 5,
@@ -111,7 +128,7 @@ def purge_block_inlets(
     # Flow upper block inlets to lower (waste) inlets
     logger.info(f"Purging all block inlets for {wait_time} seconds.")
     chip.block_inlet = "open"
-    sleep(wait_time)
+    yield from sleep(wait_time)
 
     if not keep_block0_open:
         logger.info("Leaving block 0 open.")
@@ -120,6 +137,7 @@ def purge_block_inlets(
     logger.info("Done purging block inlets.")
 
 
+@run_async
 def pattern_anti_gfp(
     chip: Chip,
     waste: str = "waste1",
@@ -170,25 +188,25 @@ def pattern_anti_gfp(
     logger.info(
         f">>> Step 1: BBSA flow\nFlushing {bbsa} to {waste} for 5 sec, then closing {waste}."
     )
-    purge_common_inlet(chip, bbsa, waste, wait_time=5)
+    purge_common_inlet(chip, bbsa, waste, wait_time=5, blocking=True)
 
     logger.info(f"Flushing {bbsa=} through device with buttons closed for 5 min.")
     chip.inlet = "open"
-    sleep(5 * 60)
+    yield from sleep(5 * 60)
 
     logger.info(f"Opening buttons; flowing {bbsa=} for 35 min.")
     chip.button = "open"
-    sleep(35 * 60)
+    yield from sleep(35 * 60)
 
     logger.info(f"Done flowing {bbsa=}.")
     chip[bbsa] = "closed"
 
     logger.info(f"Flushing {pbs=} to {waste} for 30 sec, then closing {waste}.")
-    purge_common_inlet(chip, pbs, waste, wait_time=30)
+    purge_common_inlet(chip, pbs, waste, wait_time=30, blocking=True)
 
     logger.info(f"Flushing {pbs=} through device with buttons open for 10 min.")
     chip.inlet = "open"
-    sleep(10 * 60)
+    yield from sleep(10 * 60)
 
     logger.info(f"Done flowing PBS ({pbs}).")
     chip[pbs] = "closed"
@@ -197,16 +215,16 @@ def pattern_anti_gfp(
         ">>> Step 2: Neutravidin flow\n"
         f"Flushing NA ({na}) to {waste} for 30 sec, then closing {waste}."
     )
-    purge_common_inlet(chip, na, waste, wait_time=30)
+    purge_common_inlet(chip, na, waste, wait_time=30, blocking=True)
 
     logger.info(f"Flushing {na=} through device with buttons open for 30 min.")
     chip.inlet = "open"
-    sleep(30 * 60)
+    yield from sleep(30 * 60)
 
     logger.info(f"Done flowing {na=}. Flowing {pbs=} through device for 10 min.")
     chip[na] = "closed"
     chip[pbs] = "open"
-    sleep(10 * 60)
+    yield from sleep(10 * 60)
 
     logger.info(f"Done flowing {pbs=}.")
     chip[pbs] = "closed"
@@ -216,12 +234,12 @@ def pattern_anti_gfp(
     )
     chip.button = "closed"
     chip[bbsa] = "open"
-    sleep(35 * 60)
+    yield from sleep(35 * 60)
 
     logger.info(f"Done flowing {bbsa=}. Flowing {pbs=} through device for 10 min.")
     chip[bbsa] = "closed"
     chip[pbs] = "open"
-    sleep(10 * 60)
+    yield from sleep(10 * 60)
 
     logger.info(f"Done flowing {pbs=}.")
     chip[pbs] = "closed"
@@ -230,30 +248,31 @@ def pattern_anti_gfp(
         ">>> Step 4: anti_gfp flow\n"
         f"Flushing {anti_gfp=} to {waste} for 30 sec, then closing {waste}."
     )
-    purge_common_inlet(chip, anti_gfp, waste, wait_time=30)
+    purge_common_inlet(chip, anti_gfp, waste, wait_time=30, blocking=True)
 
     logger.info(f"Flowing anti_gfp ({anti_gfp}) through device for 30 sec.")
     chip.inlet = "open"
-    sleep(30)
+    yield from sleep(30)
 
     logger.info(f"Opened buttons. Flowing anti_gfp ({anti_gfp}) through device for 13.3 min.")
     chip.button = "open"
-    sleep(int(13.3 * 60))
+    yield from sleep(int(13.3 * 60))
 
     logger.info(f"Flowing anti_gfp ({anti_gfp}) through device with buttons closed for 30 sec.")
     chip.button = "closed"
-    sleep(30)
+    yield from sleep(30)
 
     logger.info(f"Done flowing {anti_gfp=} through device. Washing with {pbs=}.")
     chip[anti_gfp] = "closed"
     chip[pbs] = "open"
-    sleep(10 * 60)
+    yield from sleep(10 * 60)
 
     logger.info(f"Done flowing {pbs=}. Closing outlet.")
     deadend_fill(chip, buffer=pbs)
     logger.info(">>> Done with patterning.")
 
 
+@run_async
 def sds_wash(
     chip: Chip,
     waste: str = "waste1",
@@ -294,20 +313,20 @@ def sds_wash(
 
     # Flow SDS over device for 5 minutes.
     chip.neck = "open" if wash_lagoons else "closed"
-    purge_common_inlet(chip, sds, waste)
+    purge_common_inlet(chip, sds, waste, blocking=True)
     chip.inlet = "open"
     chip.outlet[outlet] = "open"
-    sleep(5 * 60)
+    yield from sleep(5 * 60)
 
     chip[sds] = "closed"
     chip[outlet] = "closed"
 
     # Wash with PBS for 10 minutes.
     logger.info(">>> Washing with PBS\n")
-    purge_common_inlet(chip, pbs, waste)
+    purge_common_inlet(chip, pbs, waste, blocking=True)
     chip.inlet = "open"
     chip[outlet] = "open"
-    sleep(10 * 60)
+    yield from sleep(10 * 60)
 
     chip[outlet] = "closed"
     chip.neck = "open" if keep_neck_open else "closed"
