@@ -62,12 +62,12 @@ def load(config, path=None):
             core.setProperty(port, k, v)
         core.initializeDevice(port)
 
+    valves = None
     for name, params in config.items():
         if name in ports:
             continue
 
         # TODO: Pull out valves so config isn't order dependent.
-        valves = None
         device = params.pop("device")
         match device:
             case "asi_stage":

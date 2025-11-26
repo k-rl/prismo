@@ -17,7 +17,7 @@ class ValveDriver:
     def __getitem__(self, idx: int) -> Literal["closed", "open"]:
         if idx < 0 or idx >= self._num_valves:
             raise IndexError(f"Invalid valve index {idx}.")
-        addr = self._valves.index(idx) + 512
+        addr = idx + 512
         return "open" if self._client.read_coils(addr).bits[0] else "closed"
 
     def __setitem__(self, idx: int, state: Literal["closed", "open", 1, 0] | bool):
@@ -25,8 +25,7 @@ class ValveDriver:
             raise IndexError(f"Invalid valve index {idx}.")
         if state not in ("closed", "open", 1, 0, True, False):
             raise ValueError(f"Invalid state {state}.")
-        addr = self._valves.index(idx)
-        self._client.write_coil(addr, (state == "open") or (state == 0))
+        self._client.write_coil(idx, (state == "open") or (state == 0))
 
     def __len__(self):
         return self._num_valves
@@ -174,7 +173,7 @@ class Chip:
                 v[i] = state
 
     def __getitem__(self, key: str) -> Literal["closed", "open"] | Valves:
-        return self.__getattr__[key]
+        return self.__getattr__(key)
 
     def __setitem__(self, key: str, state: Literal["closed", "open"]):
         self.__setattr__(key, state)
