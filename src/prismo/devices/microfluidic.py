@@ -185,6 +185,14 @@ class Chip:
     def __setitem__(self, key: str, state: Literal["closed", "open"]):
         self.__setattr__(key, state)
 
+    def close_all(self):
+        for v in self.valves:
+            self[v] = "closed"
+
+    def open_all(self):
+        for v in self.valves:
+            self[v] = "open"
+
     @property
     def valves(self) -> dict[str, Literal["closed", "open"]]:
         # TODO: This is wrong.
