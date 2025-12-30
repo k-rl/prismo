@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from enum import IntEnum
 
 import numpy as np
-import packet
 import serial
+
+from . import packet
 
 
 class Code(IntEnum):

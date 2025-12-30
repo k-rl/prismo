@@ -6,6 +6,7 @@ from serial.tools import list_ports
 
 class PacketStream:
     def __init__(self, timeout_s: int = 1):
+        device_found = False
         for port in list_ports.comports():
             if port.manufacturer is not None and "Espressif" in port.manufacturer:
                 self._socket = serial.Serial(port.device, baudrate=115200, timeout=timeout_s)
@@ -13,12 +14,12 @@ class PacketStream:
                     self.write(bytes([0]))
                     result = self.read()
                     if len(result) == 1 and result[0] == 0:
+                        device_found = True
                         break
                 except Exception:
                     pass
                 self._socket.close()
-                self._socket = None
-        if self._socket is None:
+        if not device_found:
             raise ConnectionError("Could not find a valid device.")
 
     def write(self, request: Buffer):
@@ -65,7 +66,7 @@ class PacketStream:
 
         return out
 
-    def _timeout_read(self, size: int) -> bytearray:
+    def _timeout_read(self, size: int) -> bytes:
         out = self._socket.read(size)
         if len(out) < size:
             raise TimeoutError("Read timed out.")
