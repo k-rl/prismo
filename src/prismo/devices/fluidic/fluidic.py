@@ -15,6 +15,7 @@ class Code(IntEnum):
     INIT = 0x00
     FLOW_SENSOR_INFO = 0x01
     SET_PUMP_RPM = 0x02
+    GET_PUMP_RPM = 0x03
     FAIL = 0xFF
 
 
@@ -31,11 +32,6 @@ class FlowController:
     def __init__(self, name):
         self.name = name
         self._socket = packet.PacketStream()
-
-    def set_rpm(self, rpm: float):
-        request = struct.pack(">Bd", Code.SET_PUMP_RPM, rpm)
-        self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_PUMP_RPM)
 
     @property
     def air(self) -> bool:
@@ -57,6 +53,18 @@ class FlowController:
     def temperature(self) -> float:
         return self.sensor_info().degrees_c
 
+    @property
+    def rpm(self) -> float:
+        request = struct.pack(">B", Code.GET_PUMP_RPM)
+        self._socket.write(request)
+        return self._read_packet(assert_code=Code.GET_PUMP_RPM)
+
+    @rpm.setter
+    def rpm(self, rpm: float):
+        request = struct.pack(">Bd", Code.SET_PUMP_RPM, rpm)
+        self._socket.write(request)
+        self._read_packet(assert_code=Code.SET_PUMP_RPM)
+
     def sensor_info(self) -> SensorInfo:
         request = struct.pack(">B", Code.FLOW_SENSOR_INFO)
         self._socket.write(request)
@@ -73,6 +81,8 @@ class FlowController:
                 return SensorInfo(*struct.unpack(">???dd", response[1:]))
             case Code.SET_PUMP_RPM:
                 return None
+            case Code.GET_PUMP_RPM:
+                return struct.unpack(">d", response[1:])[0]
             case _:
                 raise RuntimeError(f"Unknown response {code=}.")
 
