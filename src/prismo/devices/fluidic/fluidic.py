@@ -35,18 +35,6 @@ class Code(IntEnum):
     SET_DOUBLE_EDGE_STEP = 0x1B
     GET_INTERPOLATE_MICROSTEPS = 0x1C
     SET_INTERPOLATE_MICROSTEPS = 0x1D
-    GET_COOLSTEP_THRESHOLD = 0x1E
-    SET_COOLSTEP_THRESHOLD = 0x1F
-    GET_COOLSTEP_LOWER_MIN_CURRENT = 0x22
-    SET_COOLSTEP_LOWER_MIN_CURRENT = 0x23
-    GET_COOLSTEP_CURRENT_DOWNSTEP_RATE = 0x24
-    SET_COOLSTEP_CURRENT_DOWNSTEP_RATE = 0x25
-    GET_STALLGUARD_HYSTERESIS = 0x26
-    SET_STALLGUARD_HYSTERESIS = 0x27
-    GET_CURRENT_UPSTEP = 0x28
-    SET_CURRENT_UPSTEP = 0x29
-    GET_COOLSTEP_STALLGUARD_THRESHOLD = 0x2A
-    SET_COOLSTEP_STALLGUARD_THRESHOLD = 0x2B
     GET_SHORT_SUPPLY_PROTECT = 0x2C
     SET_SHORT_SUPPLY_PROTECT = 0x2D
     GET_SHORT_GROUND_PROTECT = 0x2E
@@ -325,78 +313,6 @@ class FlowController:
         request = struct.pack(">B?", Code.SET_INTERPOLATE_MICROSTEPS, enable)
         self._socket.write(request)
         self._read_packet(assert_code=Code.SET_INTERPOLATE_MICROSTEPS)
-
-    @property
-    def coolstep_threshold(self) -> int:
-        request = struct.pack(">B", Code.GET_COOLSTEP_THRESHOLD)
-        self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_COOLSTEP_THRESHOLD)
-
-    @coolstep_threshold.setter
-    def coolstep_threshold(self, threshold: int):
-        request = struct.pack(">BI", Code.SET_COOLSTEP_THRESHOLD, threshold)
-        self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_COOLSTEP_THRESHOLD)
-
-    @property
-    def coolstep_lower_min_current(self) -> bool:
-        request = struct.pack(">B", Code.GET_COOLSTEP_LOWER_MIN_CURRENT)
-        self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_COOLSTEP_LOWER_MIN_CURRENT)
-
-    @coolstep_lower_min_current.setter
-    def coolstep_lower_min_current(self, enable: bool):
-        request = struct.pack(">B?", Code.SET_COOLSTEP_LOWER_MIN_CURRENT, enable)
-        self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_COOLSTEP_LOWER_MIN_CURRENT)
-
-    @property
-    def coolstep_current_downstep_rate(self) -> int:
-        request = struct.pack(">B", Code.GET_COOLSTEP_CURRENT_DOWNSTEP_RATE)
-        self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_COOLSTEP_CURRENT_DOWNSTEP_RATE)
-
-    @coolstep_current_downstep_rate.setter
-    def coolstep_current_downstep_rate(self, rate: int):
-        request = struct.pack(">BB", Code.SET_COOLSTEP_CURRENT_DOWNSTEP_RATE, rate)
-        self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_COOLSTEP_CURRENT_DOWNSTEP_RATE)
-
-    @property
-    def stallguard_hysteresis(self) -> int:
-        request = struct.pack(">B", Code.GET_STALLGUARD_HYSTERESIS)
-        self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_STALLGUARD_HYSTERESIS)
-
-    @stallguard_hysteresis.setter
-    def stallguard_hysteresis(self, hysteresis: int):
-        request = struct.pack(">BB", Code.SET_STALLGUARD_HYSTERESIS, hysteresis)
-        self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_STALLGUARD_HYSTERESIS)
-
-    @property
-    def current_upstep(self) -> int:
-        request = struct.pack(">B", Code.GET_CURRENT_UPSTEP)
-        self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_CURRENT_UPSTEP)
-
-    @current_upstep.setter
-    def current_upstep(self, upstep: int):
-        request = struct.pack(">BB", Code.SET_CURRENT_UPSTEP, upstep)
-        self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_CURRENT_UPSTEP)
-
-    @property
-    def coolstep_stallguard_threshold(self) -> int:
-        request = struct.pack(">B", Code.GET_COOLSTEP_STALLGUARD_THRESHOLD)
-        self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_COOLSTEP_STALLGUARD_THRESHOLD)
-
-    @coolstep_stallguard_threshold.setter
-    def coolstep_stallguard_threshold(self, threshold: int):
-        request = struct.pack(">BB", Code.SET_COOLSTEP_STALLGUARD_THRESHOLD, threshold)
-        self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_COOLSTEP_STALLGUARD_THRESHOLD)
 
     @property
     def short_supply_protect(self) -> bool:
@@ -774,18 +690,6 @@ class FlowController:
                 return struct.unpack(">?", payload)[0]
             case Code.GET_INTERPOLATE_MICROSTEPS:
                 return struct.unpack(">?", payload)[0]
-            case Code.GET_COOLSTEP_THRESHOLD:
-                return struct.unpack(">I", payload)[0]
-            case Code.GET_COOLSTEP_LOWER_MIN_CURRENT:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_COOLSTEP_CURRENT_DOWNSTEP_RATE:
-                return struct.unpack(">B", payload)[0]
-            case Code.GET_STALLGUARD_HYSTERESIS:
-                return struct.unpack(">B", payload)[0]
-            case Code.GET_CURRENT_UPSTEP:
-                return struct.unpack(">B", payload)[0]
-            case Code.GET_COOLSTEP_STALLGUARD_THRESHOLD:
-                return struct.unpack(">B", payload)[0]
             case Code.GET_SHORT_SUPPLY_PROTECT:
                 return struct.unpack(">?", payload)[0]
             case Code.GET_SHORT_GROUND_PROTECT:
@@ -878,12 +782,6 @@ class FlowController:
                 | Code.SET_FILTER_STEP_PULSES
                 | Code.SET_DOUBLE_EDGE_STEP
                 | Code.SET_INTERPOLATE_MICROSTEPS
-                | Code.SET_COOLSTEP_THRESHOLD
-                | Code.SET_COOLSTEP_LOWER_MIN_CURRENT
-                | Code.SET_COOLSTEP_CURRENT_DOWNSTEP_RATE
-                | Code.SET_STALLGUARD_HYSTERESIS
-                | Code.SET_CURRENT_UPSTEP
-                | Code.SET_COOLSTEP_STALLGUARD_THRESHOLD
                 | Code.SET_SHORT_SUPPLY_PROTECT
                 | Code.SET_SHORT_GROUND_PROTECT
                 | Code.SET_BLANK_TIME
