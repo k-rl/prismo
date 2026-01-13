@@ -37,8 +37,6 @@ class Code(IntEnum):
     SET_INTERPOLATE_MICROSTEPS = 0x1D
     GET_COOLSTEP_THRESHOLD = 0x1E
     SET_COOLSTEP_THRESHOLD = 0x1F
-    GET_STALLGUARD_THRESHOLD = 0x20
-    SET_STALLGUARD_THRESHOLD = 0x21
     GET_COOLSTEP_LOWER_MIN_CURRENT = 0x22
     SET_COOLSTEP_LOWER_MIN_CURRENT = 0x23
     GET_COOLSTEP_CURRENT_DOWNSTEP_RATE = 0x24
@@ -106,12 +104,6 @@ class Code(IntEnum):
     GET_GROUND_SHORT = 0x63
     GET_OVERTEMPERATURE = 0x64
     FAIL = 0xFF
-
-
-class IndexOutput(IntEnum):
-    PERIOD = 0
-    OVERTEMPERATURE = 1
-    MICROSTEP = 2
 
 
 class BlankTime(IntEnum):
@@ -345,18 +337,6 @@ class FlowController:
         request = struct.pack(">BI", Code.SET_COOLSTEP_THRESHOLD, threshold)
         self._socket.write(request)
         self._read_packet(assert_code=Code.SET_COOLSTEP_THRESHOLD)
-
-    @property
-    def stallguard_threshold(self) -> int:
-        request = struct.pack(">B", Code.GET_STALLGUARD_THRESHOLD)
-        self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_STALLGUARD_THRESHOLD)
-
-    @stallguard_threshold.setter
-    def stallguard_threshold(self, threshold: int):
-        request = struct.pack(">BB", Code.SET_STALLGUARD_THRESHOLD, threshold)
-        self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_STALLGUARD_THRESHOLD)
 
     @property
     def coolstep_lower_min_current(self) -> bool:
@@ -796,8 +776,6 @@ class FlowController:
                 return struct.unpack(">?", payload)[0]
             case Code.GET_COOLSTEP_THRESHOLD:
                 return struct.unpack(">I", payload)[0]
-            case Code.GET_STALLGUARD_THRESHOLD:
-                return struct.unpack(">B", payload)[0]
             case Code.GET_COOLSTEP_LOWER_MIN_CURRENT:
                 return struct.unpack(">?", payload)[0]
             case Code.GET_COOLSTEP_CURRENT_DOWNSTEP_RATE:
@@ -901,7 +879,6 @@ class FlowController:
                 | Code.SET_DOUBLE_EDGE_STEP
                 | Code.SET_INTERPOLATE_MICROSTEPS
                 | Code.SET_COOLSTEP_THRESHOLD
-                | Code.SET_STALLGUARD_THRESHOLD
                 | Code.SET_COOLSTEP_LOWER_MIN_CURRENT
                 | Code.SET_COOLSTEP_CURRENT_DOWNSTEP_RATE
                 | Code.SET_STALLGUARD_HYSTERESIS
