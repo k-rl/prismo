@@ -4,6 +4,7 @@ import struct
 import time
 from dataclasses import dataclass
 from enum import IntEnum
+from numbers import Number
 
 import numpy as np
 import serial
@@ -18,6 +19,8 @@ class Code(IntEnum):
     GET_PUMP_RPM = 0x03
     GET_RMS_AMPS = 0x0C
     SET_RMS_AMPS = 0x0D
+    GET_STOP_RMS_AMPS = 0x70
+    SET_STOP_RMS_AMPS = 0x71
     GET_STOP_MODE = 0x0E
     SET_STOP_MODE = 0x0F
     GET_POWERDOWN_DURATION_S = 0x10
@@ -82,7 +85,6 @@ class Code(IntEnum):
     GET_DRIVER_ERROR = 0x4D
     GET_IS_RESET = 0x4E
     GET_TRANSMISSION_COUNT = 0x4F
-    GET_VERSION = 0x50
     GET_DIRECTION_PIN = 0x51
     GET_DISABLE_PWM_PIN = 0x52
     GET_STEP_PIN = 0x53
@@ -110,13 +112,6 @@ class IndexOutput(IntEnum):
     PERIOD = 0
     OVERTEMPERATURE = 1
     MICROSTEP = 2
-
-
-class FreewheelMode(IntEnum):
-    NORMAL = 0
-    FREEWHEELING = 1
-    SHORT_LOW_SIDE = 2
-    SHORT_HIGH_SIDE = 3
 
 
 class BlankTime(IntEnum):
@@ -152,6 +147,9 @@ class OvertemperatureStatus(IntEnum):
     NORMAL = 0
     WARNING = 1
     SHUTDOWN = 3
+
+
+STOP_CODES = ["normal", "freewheel", "low_side", "high_side"]
 
 
 @dataclass
@@ -229,47 +227,38 @@ class FlowController:
         return self._read_packet(assert_code=Code.FLOW_SENSOR_INFO)
 
     @property
-    def rms_amps(self) -> tuple[float, float]:
+    def rms_amps(self) -> float:
         request = struct.pack(">B", Code.GET_RMS_AMPS)
         self._socket.write(request)
         return self._read_packet(assert_code=Code.GET_RMS_AMPS)
 
     @rms_amps.setter
-    def rms_amps(self, values):
-        running_rms_amps, stopped_rms_amps, ref_volts, sense_ohms = values
-        request = struct.pack(
-            ">Bdddd",
-            Code.SET_RMS_AMPS,
-            running_rms_amps,
-            stopped_rms_amps,
-            ref_volts,
-            sense_ohms,
-        )
+    def rms_amps(self, amps: Number):
+        request = struct.pack(">Bd", Code.SET_RMS_AMPS, amps)
         self._socket.write(request)
         self._read_packet(assert_code=Code.SET_RMS_AMPS)
 
-    def set_rms_amps(
-        self,
-        running_rms_amps: float,
-        stopped_rms_amps: float,
-        ref_volts: float,
-        sense_ohms: float,
-    ):
-        self.rms_amps = (running_rms_amps, stopped_rms_amps, ref_volts, sense_ohms)
+    @property
+    def stop_rms_amps(self) -> float:
+        request = struct.pack(">B", Code.GET_STOP_RMS_AMPS)
+        self._socket.write(request)
+        return self._read_packet(assert_code=Code.GET_STOP_RMS_AMPS)
+
+    @stop_rms_amps.setter
+    def stop_rms_amps(self, amps: Number):
+        request = struct.pack(">Bd", Code.SET_STOP_RMS_AMPS, amps)
+        self._socket.write(request)
+        self._read_packet(assert_code=Code.SET_STOP_RMS_AMPS)
 
     @property
     def stop_mode(self) -> str:
         request = struct.pack(">B", Code.GET_STOP_MODE)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_STOP_MODE)
+        return STOP_CODES[self._read_packet(assert_code=Code.GET_STOP_MODE)]
 
     @stop_mode.setter
-    def stop_mode(self, mode):
-        if isinstance(mode, str):
-            mode = FreewheelMode[mode.strip().upper()]
-        else:
-            mode = FreewheelMode(mode)
-        request = struct.pack(">BB", Code.SET_STOP_MODE, int(mode))
+    def stop_mode(self, mode: str):
+        request = struct.pack(">BB", Code.SET_STOP_MODE, STOP_CODES.index(mode))
         self._socket.write(request)
         self._read_packet(assert_code=Code.SET_STOP_MODE)
 
@@ -654,12 +643,6 @@ class FlowController:
         return self._read_packet(assert_code=Code.GET_TRANSMISSION_COUNT)
 
     @property
-    def version(self) -> int:
-        request = struct.pack(">B", Code.GET_VERSION)
-        self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_VERSION)
-
-    @property
     def direction_pin(self) -> bool:
         request = struct.pack(">B", Code.GET_DIRECTION_PIN)
         self._socket.write(request)
@@ -794,9 +777,11 @@ class FlowController:
             case Code.GET_PUMP_RPM:
                 return struct.unpack(">d", payload)[0]
             case Code.GET_RMS_AMPS:
-                return struct.unpack(">dd", payload)
+                return struct.unpack(">d", payload)[0]
+            case Code.GET_STOP_RMS_AMPS:
+                return struct.unpack(">d", payload)[0]
             case Code.GET_STOP_MODE:
-                return FreewheelMode(struct.unpack(">B", payload)[0]).name.lower()
+                return struct.unpack(">B", payload)[0]
             case Code.GET_POWERDOWN_DURATION_S:
                 return struct.unpack(">d", payload)[0]
             case Code.GET_POWERDOWN_DELAY_S:
@@ -863,8 +848,6 @@ class FlowController:
                 return struct.unpack(">?", payload)[0]
             case Code.GET_TRANSMISSION_COUNT:
                 return struct.unpack(">B", payload)[0]
-            case Code.GET_VERSION:
-                return struct.unpack(">B", payload)[0]
             case Code.GET_DIRECTION_PIN:
                 return struct.unpack(">?", payload)[0]
             case Code.GET_DISABLE_PWM_PIN:
@@ -909,6 +892,7 @@ class FlowController:
                 Code.INIT
                 | Code.SET_PUMP_RPM
                 | Code.SET_RMS_AMPS
+                | Code.SET_STOP_RMS_AMPS
                 | Code.SET_STOP_MODE
                 | Code.SET_POWERDOWN_DURATION_S
                 | Code.SET_POWERDOWN_DELAY_S
