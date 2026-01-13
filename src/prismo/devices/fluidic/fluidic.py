@@ -4,7 +4,8 @@ import struct
 import time
 from dataclasses import dataclass
 from enum import IntEnum
-from numbers import Number
+from numbers import Real
+from typing import Any
 
 import numpy as np
 import serial
@@ -63,10 +64,6 @@ class Code(IntEnum):
     SET_PWM_GRADIENT = 0x45
     GET_PWM_OFFSET = 0x46
     SET_PWM_OFFSET = 0x47
-    GET_INVERT_DIRECTION = 0x48
-    SET_INVERT_DIRECTION = 0x49
-    GET_VELOCITY = 0x4A
-    SET_VELOCITY = 0x4B
     GET_CHARGE_PUMP_UNDERVOLTAGE = 0x4C
     GET_DRIVER_ERROR = 0x4D
     GET_IS_RESET = 0x4E
@@ -94,42 +91,17 @@ class Code(IntEnum):
     FAIL = 0xFF
 
 
-class BlankTime(IntEnum):
-    B16 = 0
-    B24 = 1
-    B36 = 2
-    B54 = 3
-
-
-class PwmFrequency(IntEnum):
-    DIV1024 = 0
-    DIV683 = 1
-    DIV512 = 2
-    DIV410 = 3
-
-
-class PhaseStatus(IntEnum):
-    NONE = 0
-    PHASE_A = 1
-    PHASE_B = 2
-    BOTH_PHASES = 3
-
-
-class TemperatureThreshold(IntEnum):
-    NORMAL = 0
-    TEMP_120C = 1
-    TEMP_143C = 3
-    TEMP_150C = 7
-    TEMP_157C = 15
-
-
-class OvertemperatureStatus(IntEnum):
-    NORMAL = 0
-    WARNING = 1
-    SHUTDOWN = 3
-
-
 STOP_CODES = ["normal", "freewheel", "low_side", "high_side"]
+BLANK_TIMES = ["b16", "b24", "b36", "b54"]
+PWM_FREQUENCIES = ["div1024", "div683", "div512", "div410"]
+PHASE_STATUSES = ["none", "phase_a", "phase_b", "both_phases"]
+TEMPERATURE_THRESHOLDS = ["normal", "temp_120c", "temp_143c", "temp_150c", "temp_157c"]
+OVERTEMPERATURE_STATUSES = ["normal", "warning", "shutdown"]
+BLANK_TIMES = ["b16", "b24", "b36", "b54"]
+PWM_FREQUENCIES = ["div1024", "div683", "div512", "div410"]
+PHASE_STATUSES = ["none", "phase_a", "phase_b", "both_phases"]
+TEMPERATURE_THRESHOLDS = ["normal", "temp_120c", "temp_143c", "temp_150c", "temp_157c"]
+OVERTEMPERATURE_STATUSES = ["normal", "warning", "shutdown"]
 
 
 @dataclass
@@ -153,21 +125,6 @@ class FlowController:
     def __init__(self, name):
         self.name = name
         self._socket = packet.PacketStream()
-
-    def set_rpm(self, rpm: float):
-        self.rpm = rpm
-
-    @property
-    def rpm(self) -> float:
-        request = struct.pack(">B", Code.GET_PUMP_RPM)
-        self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_PUMP_RPM)
-
-    @rpm.setter
-    def rpm(self, rpm: float):
-        request = struct.pack(">Bd", Code.SET_PUMP_RPM, rpm)
-        self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_PUMP_RPM)
 
     @property
     def air(self) -> bool:
@@ -193,617 +150,454 @@ class FlowController:
     def rpm(self) -> float:
         request = struct.pack(">B", Code.GET_PUMP_RPM)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_PUMP_RPM)
+        return self._read_packet(Code.GET_PUMP_RPM, "d")
 
     @rpm.setter
-    def rpm(self, rpm: float):
+    def rpm(self, rpm: Real):
         request = struct.pack(">Bd", Code.SET_PUMP_RPM, rpm)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_PUMP_RPM)
+        self._read_packet(Code.SET_PUMP_RPM)
 
     def sensor_info(self) -> SensorInfo:
         request = struct.pack(">B", Code.FLOW_SENSOR_INFO)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.FLOW_SENSOR_INFO)
+        return SensorInfo(*self._read_packet(Code.FLOW_SENSOR_INFO, "???dd"))
 
     @property
     def rms_amps(self) -> float:
         request = struct.pack(">B", Code.GET_RMS_AMPS)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_RMS_AMPS)
+        return self._read_packet(Code.GET_RMS_AMPS, "d")
 
     @rms_amps.setter
-    def rms_amps(self, amps: Number):
+    def rms_amps(self, amps: Real):
         request = struct.pack(">Bd", Code.SET_RMS_AMPS, amps)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_RMS_AMPS)
+        self._read_packet(Code.SET_RMS_AMPS)
 
     @property
     def stop_rms_amps(self) -> float:
         request = struct.pack(">B", Code.GET_STOP_RMS_AMPS)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_STOP_RMS_AMPS)
+        return self._read_packet(Code.GET_STOP_RMS_AMPS, "d")
 
     @stop_rms_amps.setter
-    def stop_rms_amps(self, amps: Number):
+    def stop_rms_amps(self, amps: Real):
         request = struct.pack(">Bd", Code.SET_STOP_RMS_AMPS, amps)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_STOP_RMS_AMPS)
+        self._read_packet(Code.SET_STOP_RMS_AMPS)
 
     @property
     def stop_mode(self) -> str:
         request = struct.pack(">B", Code.GET_STOP_MODE)
         self._socket.write(request)
-        return STOP_CODES[self._read_packet(assert_code=Code.GET_STOP_MODE)]
+        return STOP_CODES[self._read_packet(Code.GET_STOP_MODE, "B")]
 
     @stop_mode.setter
     def stop_mode(self, mode: str):
         request = struct.pack(">BB", Code.SET_STOP_MODE, STOP_CODES.index(mode))
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_STOP_MODE)
+        self._read_packet(Code.SET_STOP_MODE)
 
     @property
     def powerdown_duration_s(self) -> float:
         request = struct.pack(">B", Code.GET_POWERDOWN_DURATION_S)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_POWERDOWN_DURATION_S)
+        return self._read_packet(Code.GET_POWERDOWN_DURATION_S, "d")
 
     @powerdown_duration_s.setter
-    def powerdown_duration_s(self, duration: float):
+    def powerdown_duration_s(self, duration: Real):
         request = struct.pack(">Bd", Code.SET_POWERDOWN_DURATION_S, duration)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_POWERDOWN_DURATION_S)
+        self._read_packet(Code.SET_POWERDOWN_DURATION_S)
 
     @property
     def powerdown_delay_s(self) -> float:
         request = struct.pack(">B", Code.GET_POWERDOWN_DELAY_S)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_POWERDOWN_DELAY_S)
+        return self._read_packet(Code.GET_POWERDOWN_DELAY_S, "d")
 
     @powerdown_delay_s.setter
-    def powerdown_delay_s(self, delay: float):
+    def powerdown_delay_s(self, delay: Real):
         request = struct.pack(">Bd", Code.SET_POWERDOWN_DELAY_S, delay)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_POWERDOWN_DELAY_S)
+        self._read_packet(Code.SET_POWERDOWN_DELAY_S)
 
     @property
     def microsteps(self) -> int:
         request = struct.pack(">B", Code.GET_MICROSTEPS)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_MICROSTEPS)
+        return self._read_packet(Code.GET_MICROSTEPS, "H")
 
     @microsteps.setter
     def microsteps(self, microsteps: int):
         request = struct.pack(">BH", Code.SET_MICROSTEPS, microsteps)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_MICROSTEPS)
+        self._read_packet(Code.SET_MICROSTEPS)
 
     @property
     def filter_step_pulses(self) -> bool:
         request = struct.pack(">B", Code.GET_FILTER_STEP_PULSES)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_FILTER_STEP_PULSES)
+        return self._read_packet(Code.GET_FILTER_STEP_PULSES, "?")
 
     @filter_step_pulses.setter
     def filter_step_pulses(self, enable: bool):
         request = struct.pack(">B?", Code.SET_FILTER_STEP_PULSES, enable)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_FILTER_STEP_PULSES)
+        self._read_packet(Code.SET_FILTER_STEP_PULSES)
 
     @property
     def double_edge_step(self) -> bool:
         request = struct.pack(">B", Code.GET_DOUBLE_EDGE_STEP)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_DOUBLE_EDGE_STEP)
+        return self._read_packet(Code.GET_DOUBLE_EDGE_STEP, "?")
 
     @double_edge_step.setter
     def double_edge_step(self, enable: bool):
         request = struct.pack(">B?", Code.SET_DOUBLE_EDGE_STEP, enable)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_DOUBLE_EDGE_STEP)
+        self._read_packet(Code.SET_DOUBLE_EDGE_STEP)
 
     @property
     def interpolate_microsteps(self) -> bool:
         request = struct.pack(">B", Code.GET_INTERPOLATE_MICROSTEPS)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_INTERPOLATE_MICROSTEPS)
+        return self._read_packet(Code.GET_INTERPOLATE_MICROSTEPS, "?")
 
     @interpolate_microsteps.setter
     def interpolate_microsteps(self, enable: bool):
         request = struct.pack(">B?", Code.SET_INTERPOLATE_MICROSTEPS, enable)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_INTERPOLATE_MICROSTEPS)
+        self._read_packet(Code.SET_INTERPOLATE_MICROSTEPS)
 
     @property
     def short_supply_protect(self) -> bool:
         request = struct.pack(">B", Code.GET_SHORT_SUPPLY_PROTECT)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_SHORT_SUPPLY_PROTECT)
+        return self._read_packet(Code.GET_SHORT_SUPPLY_PROTECT, "?")
 
     @short_supply_protect.setter
     def short_supply_protect(self, enable: bool):
         request = struct.pack(">B?", Code.SET_SHORT_SUPPLY_PROTECT, enable)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_SHORT_SUPPLY_PROTECT)
+        self._read_packet(Code.SET_SHORT_SUPPLY_PROTECT)
 
     @property
     def short_ground_protect(self) -> bool:
         request = struct.pack(">B", Code.GET_SHORT_GROUND_PROTECT)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_SHORT_GROUND_PROTECT)
+        return self._read_packet(Code.GET_SHORT_GROUND_PROTECT, "?")
 
     @short_ground_protect.setter
     def short_ground_protect(self, enable: bool):
         request = struct.pack(">B?", Code.SET_SHORT_GROUND_PROTECT, enable)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_SHORT_GROUND_PROTECT)
+        self._read_packet(Code.SET_SHORT_GROUND_PROTECT)
 
     @property
     def blank_time(self) -> str:
         request = struct.pack(">B", Code.GET_BLANK_TIME)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_BLANK_TIME)
+        return BLANK_TIMES[self._read_packet(Code.GET_BLANK_TIME, "B")]
 
     @blank_time.setter
     def blank_time(self, time_value):
-        if isinstance(time_value, str):
-            time_value = BlankTime[time_value.strip().upper()]
-        else:
-            time_value = BlankTime(time_value)
-        request = struct.pack(">BB", Code.SET_BLANK_TIME, int(time_value))
+        time_value = BLANK_TIMES.index(time_value.strip().lower())
+        request = struct.pack(">BB", Code.SET_BLANK_TIME, time_value)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_BLANK_TIME)
+        self._read_packet(Code.SET_BLANK_TIME)
 
     @property
     def hysteresis_end(self) -> int:
         request = struct.pack(">B", Code.GET_HYSTERESIS_END)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_HYSTERESIS_END)
+        return self._read_packet(Code.GET_HYSTERESIS_END, "b")
 
     @hysteresis_end.setter
     def hysteresis_end(self, end: int):
         request = struct.pack(">Bb", Code.SET_HYSTERESIS_END, end)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_HYSTERESIS_END)
+        self._read_packet(Code.SET_HYSTERESIS_END)
 
     @property
     def hysteresis_start(self) -> int:
         request = struct.pack(">B", Code.GET_HYSTERESIS_START)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_HYSTERESIS_START)
+        return self._read_packet(Code.GET_HYSTERESIS_START, "B")
 
     @hysteresis_start.setter
     def hysteresis_start(self, start: int):
         request = struct.pack(">BB", Code.SET_HYSTERESIS_START, start)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_HYSTERESIS_START)
+        self._read_packet(Code.SET_HYSTERESIS_START)
 
     @property
     def decay_time(self) -> int:
         request = struct.pack(">B", Code.GET_DECAY_TIME)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_DECAY_TIME)
+        return self._read_packet(Code.GET_DECAY_TIME, "B")
 
     @decay_time.setter
     def decay_time(self, time_value: int):
         request = struct.pack(">BB", Code.SET_DECAY_TIME, time_value)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_DECAY_TIME)
+        self._read_packet(Code.SET_DECAY_TIME)
 
     @property
     def pwm_max_rpm(self) -> float:
         request = struct.pack(">B", Code.GET_PWM_MAX_RPM)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_PWM_MAX_RPM)
+        return self._read_packet(Code.GET_PWM_MAX_RPM, "d")
 
     @pwm_max_rpm.setter
-    def pwm_max_rpm(self, rpm: float):
+    def pwm_max_rpm(self, rpm: Real):
         request = struct.pack(">Bd", Code.SET_PWM_MAX_RPM, rpm)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_PWM_MAX_RPM)
+        self._read_packet(Code.SET_PWM_MAX_RPM)
 
     @property
     def driver_switch_autoscale_limit(self) -> int:
         request = struct.pack(">B", Code.GET_DRIVER_SWITCH_AUTOSCALE_LIMIT)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_DRIVER_SWITCH_AUTOSCALE_LIMIT)
+        return self._read_packet(Code.GET_DRIVER_SWITCH_AUTOSCALE_LIMIT, "B")
 
     @driver_switch_autoscale_limit.setter
     def driver_switch_autoscale_limit(self, limit: int):
         request = struct.pack(">BB", Code.SET_DRIVER_SWITCH_AUTOSCALE_LIMIT, limit)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_DRIVER_SWITCH_AUTOSCALE_LIMIT)
+        self._read_packet(Code.SET_DRIVER_SWITCH_AUTOSCALE_LIMIT)
 
     @property
     def max_amplitude_change(self) -> int:
         request = struct.pack(">B", Code.GET_MAX_AMPLITUDE_CHANGE)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_MAX_AMPLITUDE_CHANGE)
+        return self._read_packet(Code.GET_MAX_AMPLITUDE_CHANGE, "B")
 
     @max_amplitude_change.setter
     def max_amplitude_change(self, change: int):
         request = struct.pack(">BB", Code.SET_MAX_AMPLITUDE_CHANGE, change)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_MAX_AMPLITUDE_CHANGE)
+        self._read_packet(Code.SET_MAX_AMPLITUDE_CHANGE)
 
     @property
     def pwm_autogradient(self) -> bool:
         request = struct.pack(">B", Code.GET_PWM_AUTOGRADIENT)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_PWM_AUTOGRADIENT)
+        return self._read_packet(Code.GET_PWM_AUTOGRADIENT, "?")
 
     @pwm_autogradient.setter
     def pwm_autogradient(self, enable: bool):
         request = struct.pack(">B?", Code.SET_PWM_AUTOGRADIENT, enable)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_PWM_AUTOGRADIENT)
+        self._read_packet(Code.SET_PWM_AUTOGRADIENT)
 
     @property
     def pwn_autoscale(self) -> bool:
         request = struct.pack(">B", Code.GET_PWN_AUTOSCALE)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_PWN_AUTOSCALE)
+        return self._read_packet(Code.GET_PWN_AUTOSCALE, "?")
 
     @pwn_autoscale.setter
     def pwn_autoscale(self, enable: bool):
         request = struct.pack(">B?", Code.SET_PWN_AUTOSCALE, enable)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_PWN_AUTOSCALE)
+        self._read_packet(Code.SET_PWN_AUTOSCALE)
 
     @property
     def pwm_frequency(self) -> str:
         request = struct.pack(">B", Code.GET_PWM_FREQUENCY)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_PWM_FREQUENCY)
+        return PWM_FREQUENCIES[self._read_packet(Code.GET_PWM_FREQUENCY, "B")]
 
     @pwm_frequency.setter
     def pwm_frequency(self, frequency):
-        if isinstance(frequency, str):
-            frequency = PwmFrequency[frequency.strip().upper()]
-        else:
-            frequency = PwmFrequency(frequency)
-        request = struct.pack(">BB", Code.SET_PWM_FREQUENCY, int(frequency))
+        frequency = PWM_FREQUENCIES.index(frequency.strip().lower())
+        request = struct.pack(">BB", Code.SET_PWM_FREQUENCY, frequency)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_PWM_FREQUENCY)
+        self._read_packet(Code.SET_PWM_FREQUENCY)
 
     @property
     def pwm_gradient(self) -> int:
         request = struct.pack(">B", Code.GET_PWM_GRADIENT)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_PWM_GRADIENT)
+        return self._read_packet(Code.GET_PWM_GRADIENT, "B")
 
     @pwm_gradient.setter
     def pwm_gradient(self, gradient: int):
         request = struct.pack(">BB", Code.SET_PWM_GRADIENT, gradient)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_PWM_GRADIENT)
+        self._read_packet(Code.SET_PWM_GRADIENT)
 
     @property
     def pwm_offset(self) -> int:
         request = struct.pack(">B", Code.GET_PWM_OFFSET)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_PWM_OFFSET)
+        return self._read_packet(Code.GET_PWM_OFFSET, "B")
 
     @pwm_offset.setter
     def pwm_offset(self, offset: int):
         request = struct.pack(">BB", Code.SET_PWM_OFFSET, offset)
         self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_PWM_OFFSET)
-
-    @property
-    def invert_direction(self) -> bool:
-        request = struct.pack(">B", Code.GET_INVERT_DIRECTION)
-        self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_INVERT_DIRECTION)
-
-    @invert_direction.setter
-    def invert_direction(self, enable: bool):
-        request = struct.pack(">B?", Code.SET_INVERT_DIRECTION, enable)
-        self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_INVERT_DIRECTION)
-
-    @property
-    def velocity(self) -> float:
-        request = struct.pack(">B", Code.GET_VELOCITY)
-        self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_VELOCITY)
-
-    @velocity.setter
-    def velocity(self, rpm: float):
-        request = struct.pack(">Bd", Code.SET_VELOCITY, rpm)
-        self._socket.write(request)
-        self._read_packet(assert_code=Code.SET_VELOCITY)
+        self._read_packet(Code.SET_PWM_OFFSET)
 
     @property
     def charge_pump_undervoltage(self) -> bool:
         request = struct.pack(">B", Code.GET_CHARGE_PUMP_UNDERVOLTAGE)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_CHARGE_PUMP_UNDERVOLTAGE)
+        return self._read_packet(Code.GET_CHARGE_PUMP_UNDERVOLTAGE, "?")
 
     @property
     def driver_error(self) -> bool:
         request = struct.pack(">B", Code.GET_DRIVER_ERROR)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_DRIVER_ERROR)
+        return self._read_packet(Code.GET_DRIVER_ERROR, "?")
 
     @property
     def is_reset(self) -> bool:
         request = struct.pack(">B", Code.GET_IS_RESET)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_IS_RESET)
+        return self._read_packet(Code.GET_IS_RESET, "?")
 
     @property
     def transmission_count(self) -> int:
         request = struct.pack(">B", Code.GET_TRANSMISSION_COUNT)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_TRANSMISSION_COUNT)
+        return self._read_packet(Code.GET_TRANSMISSION_COUNT, "B")
 
     @property
     def direction_pin(self) -> bool:
         request = struct.pack(">B", Code.GET_DIRECTION_PIN)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_DIRECTION_PIN)
+        return self._read_packet(Code.GET_DIRECTION_PIN, "?")
 
     @property
     def disable_pwm_pin(self) -> bool:
         request = struct.pack(">B", Code.GET_DISABLE_PWM_PIN)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_DISABLE_PWM_PIN)
+        return self._read_packet(Code.GET_DISABLE_PWM_PIN, "?")
 
     @property
     def step_pin(self) -> bool:
         request = struct.pack(">B", Code.GET_STEP_PIN)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_STEP_PIN)
+        return self._read_packet(Code.GET_STEP_PIN, "?")
 
     @property
     def powerdown_uart_pin(self) -> bool:
         request = struct.pack(">B", Code.GET_POWERDOWN_UART_PIN)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_POWERDOWN_UART_PIN)
+        return self._read_packet(Code.GET_POWERDOWN_UART_PIN, "?")
 
     @property
     def diagnostic_pin(self) -> bool:
         request = struct.pack(">B", Code.GET_DIAGNOSTIC_PIN)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_DIAGNOSTIC_PIN)
+        return self._read_packet(Code.GET_DIAGNOSTIC_PIN, "?")
 
     @property
     def microstep2_pin(self) -> bool:
         request = struct.pack(">B", Code.GET_MICROSTEP2_PIN)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_MICROSTEP2_PIN)
+        return self._read_packet(Code.GET_MICROSTEP2_PIN, "?")
 
     @property
     def microstep1_pin(self) -> bool:
         request = struct.pack(">B", Code.GET_MICROSTEP1_PIN)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_MICROSTEP1_PIN)
+        return self._read_packet(Code.GET_MICROSTEP1_PIN, "?")
 
     @property
     def disable_pin(self) -> bool:
         request = struct.pack(">B", Code.GET_DISABLE_PIN)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_DISABLE_PIN)
+        return self._read_packet(Code.GET_DISABLE_PIN, "?")
 
     @property
     def microstep_time(self) -> int:
         request = struct.pack(">B", Code.GET_MICROSTEP_TIME)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_MICROSTEP_TIME)
+        return self._read_packet(Code.GET_MICROSTEP_TIME, "I")
 
     @property
     def motor_load(self) -> int:
         request = struct.pack(">B", Code.GET_MOTOR_LOAD)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_MOTOR_LOAD)
+        return self._read_packet(Code.GET_MOTOR_LOAD, "H")
 
     @property
     def microstep_position(self) -> int:
         request = struct.pack(">B", Code.GET_MICROSTEP_POSITION)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_MICROSTEP_POSITION)
+        return self._read_packet(Code.GET_MICROSTEP_POSITION, "H")
 
     @property
     def microstep_current(self) -> tuple[int, int]:
         request = struct.pack(">B", Code.GET_MICROSTEP_CURRENT)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_MICROSTEP_CURRENT)
+        return self._read_packet(Code.GET_MICROSTEP_CURRENT, "hh")
 
     @property
     def stopped(self) -> bool:
         request = struct.pack(">B", Code.GET_STOPPED)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_STOPPED)
+        return self._read_packet(Code.GET_STOPPED, "?")
 
     @property
     def pwm_mode(self) -> bool:
         request = struct.pack(">B", Code.GET_PWM_MODE)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_PWM_MODE)
+        return self._read_packet(Code.GET_PWM_MODE, "?")
 
     @property
     def current_scale(self) -> int:
         request = struct.pack(">B", Code.GET_CURRENT_SCALE)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_CURRENT_SCALE)
+        return self._read_packet(Code.GET_CURRENT_SCALE, "B")
 
     @property
     def driver_temperature(self) -> str:
         request = struct.pack(">B", Code.GET_TEMPERATURE)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_TEMPERATURE)
+        return TEMPERATURE_THRESHOLDS[self._read_packet(Code.GET_TEMPERATURE, "B")]
 
     @property
     def open_load(self) -> str:
         request = struct.pack(">B", Code.GET_OPEN_LOAD)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_OPEN_LOAD)
+        return PHASE_STATUSES[self._read_packet(Code.GET_OPEN_LOAD, "B")]
 
     @property
     def low_side_short(self) -> str:
         request = struct.pack(">B", Code.GET_LOW_SIDE_SHORT)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_LOW_SIDE_SHORT)
+        return PHASE_STATUSES[self._read_packet(Code.GET_LOW_SIDE_SHORT, "B")]
 
     @property
     def ground_short(self) -> str:
         request = struct.pack(">B", Code.GET_GROUND_SHORT)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_GROUND_SHORT)
+        return PHASE_STATUSES[self._read_packet(Code.GET_GROUND_SHORT, "B")]
 
     @property
     def overtemperature(self) -> str:
         request = struct.pack(">B", Code.GET_OVERTEMPERATURE)
         self._socket.write(request)
-        return self._read_packet(assert_code=Code.GET_OVERTEMPERATURE)
+        return OVERTEMPERATURE_STATUSES[self._read_packet(Code.GET_OVERTEMPERATURE, "B")]
 
-    def _read_packet(self, assert_code=None):
+    def _read_packet(self, assert_code: Code, response_format: str = "") -> Any:
         response = self._socket.read()
         code = struct.unpack(">B", response[:1])[0]
         if code == Code.FAIL:
             raise RuntimeError("Device reported failure.")
-        if assert_code is not None and code != assert_code:
+        elif code != assert_code:
             raise RuntimeError(f"Expected {assert_code} got {code=}.")
 
-        payload = response[1:]
-        match code:
-            case Code.FLOW_SENSOR_INFO:
-                return SensorInfo(*struct.unpack(">???dd", payload))
-            case Code.GET_PUMP_RPM:
-                return struct.unpack(">d", payload)[0]
-            case Code.GET_RMS_AMPS:
-                return struct.unpack(">d", payload)[0]
-            case Code.GET_STOP_RMS_AMPS:
-                return struct.unpack(">d", payload)[0]
-            case Code.GET_STOP_MODE:
-                return struct.unpack(">B", payload)[0]
-            case Code.GET_POWERDOWN_DURATION_S:
-                return struct.unpack(">d", payload)[0]
-            case Code.GET_POWERDOWN_DELAY_S:
-                return struct.unpack(">d", payload)[0]
-            case Code.GET_MICROSTEPS:
-                return struct.unpack(">H", payload)[0]
-            case Code.GET_FILTER_STEP_PULSES:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_DOUBLE_EDGE_STEP:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_INTERPOLATE_MICROSTEPS:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_SHORT_SUPPLY_PROTECT:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_SHORT_GROUND_PROTECT:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_BLANK_TIME:
-                return BlankTime(struct.unpack(">B", payload)[0]).name.lower()
-            case Code.GET_HYSTERESIS_END:
-                return struct.unpack(">b", payload)[0]
-            case Code.GET_HYSTERESIS_START:
-                return struct.unpack(">B", payload)[0]
-            case Code.GET_DECAY_TIME:
-                return struct.unpack(">B", payload)[0]
-            case Code.GET_PWM_MAX_RPM:
-                return struct.unpack(">d", payload)[0]
-            case Code.GET_DRIVER_SWITCH_AUTOSCALE_LIMIT:
-                return struct.unpack(">B", payload)[0]
-            case Code.GET_MAX_AMPLITUDE_CHANGE:
-                return struct.unpack(">B", payload)[0]
-            case Code.GET_PWM_AUTOGRADIENT:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_PWN_AUTOSCALE:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_PWM_FREQUENCY:
-                return PwmFrequency(struct.unpack(">B", payload)[0]).name.lower()
-            case Code.GET_PWM_GRADIENT:
-                return struct.unpack(">B", payload)[0]
-            case Code.GET_PWM_OFFSET:
-                return struct.unpack(">B", payload)[0]
-            case Code.GET_INVERT_DIRECTION:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_VELOCITY:
-                return struct.unpack(">d", payload)[0]
-            case Code.GET_CHARGE_PUMP_UNDERVOLTAGE:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_DRIVER_ERROR:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_IS_RESET:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_TRANSMISSION_COUNT:
-                return struct.unpack(">B", payload)[0]
-            case Code.GET_DIRECTION_PIN:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_DISABLE_PWM_PIN:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_STEP_PIN:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_POWERDOWN_UART_PIN:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_DIAGNOSTIC_PIN:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_MICROSTEP2_PIN:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_MICROSTEP1_PIN:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_DISABLE_PIN:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_MICROSTEP_TIME:
-                return struct.unpack(">I", payload)[0]
-            case Code.GET_MOTOR_LOAD:
-                return struct.unpack(">H", payload)[0]
-            case Code.GET_MICROSTEP_POSITION:
-                return struct.unpack(">H", payload)[0]
-            case Code.GET_MICROSTEP_CURRENT:
-                return struct.unpack(">hh", payload)
-            case Code.GET_STOPPED:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_PWM_MODE:
-                return struct.unpack(">?", payload)[0]
-            case Code.GET_CURRENT_SCALE:
-                return struct.unpack(">B", payload)[0]
-            case Code.GET_TEMPERATURE:
-                return TemperatureThreshold(struct.unpack(">B", payload)[0]).name.lower()
-            case Code.GET_OPEN_LOAD:
-                return PhaseStatus(struct.unpack(">B", payload)[0]).name.lower()
-            case Code.GET_LOW_SIDE_SHORT:
-                return PhaseStatus(struct.unpack(">B", payload)[0]).name.lower()
-            case Code.GET_GROUND_SHORT:
-                return PhaseStatus(struct.unpack(">B", payload)[0]).name.lower()
-            case Code.GET_OVERTEMPERATURE:
-                return OvertemperatureStatus(struct.unpack(">B", payload)[0]).name.lower()
-            case (
-                Code.INIT
-                | Code.SET_PUMP_RPM
-                | Code.SET_RMS_AMPS
-                | Code.SET_STOP_RMS_AMPS
-                | Code.SET_STOP_MODE
-                | Code.SET_POWERDOWN_DURATION_S
-                | Code.SET_POWERDOWN_DELAY_S
-                | Code.SET_MICROSTEPS
-                | Code.SET_FILTER_STEP_PULSES
-                | Code.SET_DOUBLE_EDGE_STEP
-                | Code.SET_INTERPOLATE_MICROSTEPS
-                | Code.SET_SHORT_SUPPLY_PROTECT
-                | Code.SET_SHORT_GROUND_PROTECT
-                | Code.SET_BLANK_TIME
-                | Code.SET_HYSTERESIS_END
-                | Code.SET_HYSTERESIS_START
-                | Code.SET_DECAY_TIME
-                | Code.SET_PWM_MAX_RPM
-                | Code.SET_DRIVER_SWITCH_AUTOSCALE_LIMIT
-                | Code.SET_MAX_AMPLITUDE_CHANGE
-                | Code.SET_PWM_AUTOGRADIENT
-                | Code.SET_PWN_AUTOSCALE
-                | Code.SET_PWM_FREQUENCY
-                | Code.SET_PWM_GRADIENT
-                | Code.SET_PWM_OFFSET
-                | Code.SET_INVERT_DIRECTION
-                | Code.SET_VELOCITY
-            ):
-                return None
-            case Code.GET_PUMP_RPM:
-                return struct.unpack(">d", response[1:])[0]
-            case _:
-                raise RuntimeError(f"Unknown response {code=}.")
+        payload = struct.unpack(">" + response_format, response[1:])
+        if len(payload) == 1:
+            return payload[0]
+        else:
+            return payload
 
 
 class Sipper:
