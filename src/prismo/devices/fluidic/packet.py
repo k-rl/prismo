@@ -11,6 +11,7 @@ class PacketStream:
             if port.manufacturer is not None and "Espressif" in port.manufacturer:
                 self._socket = serial.Serial(port.device, baudrate=115200, timeout=timeout_s)
                 try:
+                    self._socket.reset_input_buffer()
                     self.write(bytes([0]))
                     result = self.read()
                     if len(result) == 1 and result[0] == 0:
