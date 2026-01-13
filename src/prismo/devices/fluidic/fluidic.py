@@ -2,10 +2,11 @@ import contextlib
 import re
 import struct
 import time
+import typing
 from dataclasses import dataclass
 from enum import IntEnum
 from numbers import Real
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import serial
@@ -91,17 +92,12 @@ class Code(IntEnum):
     FAIL = 0xFF
 
 
-STOP_CODES = ["normal", "freewheel", "low_side", "high_side"]
-BLANK_TIMES = ["b16", "b24", "b36", "b54"]
-PWM_FREQUENCIES = ["div1024", "div683", "div512", "div410"]
-PHASE_STATUSES = ["none", "phase_a", "phase_b", "both_phases"]
-TEMPERATURE_THRESHOLDS = ["normal", "temp_120c", "temp_143c", "temp_150c", "temp_157c"]
-OVERTEMPERATURE_STATUSES = ["normal", "warning", "shutdown"]
-BLANK_TIMES = ["b16", "b24", "b36", "b54"]
-PWM_FREQUENCIES = ["div1024", "div683", "div512", "div410"]
-PHASE_STATUSES = ["none", "phase_a", "phase_b", "both_phases"]
-TEMPERATURE_THRESHOLDS = ["normal", "temp_120c", "temp_143c", "temp_150c", "temp_157c"]
-OVERTEMPERATURE_STATUSES = ["normal", "warning", "shutdown"]
+StopMode = Literal["normal", "freewheel", "low_side", "high_side"]
+BlankTime = Literal[16, 24, 36, 54]
+PwmFrequency = Literal[1024, 683, 512, 410]
+PhaseStatus = Literal["none", "phase_a", "phase_b", "both_phases"]
+TemperatureThreshold = Literal["normal", "120c", "143c", "150c", "157c"]
+OvertemperatureStatus = Literal["normal", "warning", "shutdown"]
 
 
 @dataclass
@@ -188,14 +184,14 @@ class FlowController:
         self._read_packet(Code.SET_STOP_RMS_AMPS)
 
     @property
-    def stop_mode(self) -> str:
+    def stop_mode(self) -> StopMode:
         request = struct.pack(">B", Code.GET_STOP_MODE)
         self._socket.write(request)
-        return STOP_CODES[self._read_packet(Code.GET_STOP_MODE, "B")]
+        return typing.get_args(StopMode)[self._read_packet(Code.GET_STOP_MODE, "B")]
 
     @stop_mode.setter
-    def stop_mode(self, mode: str):
-        request = struct.pack(">BB", Code.SET_STOP_MODE, STOP_CODES.index(mode))
+    def stop_mode(self, mode: StopMode):
+        request = struct.pack(">BB", Code.SET_STOP_MODE, typing.get_args(StopMode).index(mode))
         self._socket.write(request)
         self._read_packet(Code.SET_STOP_MODE)
 
@@ -296,15 +292,16 @@ class FlowController:
         self._read_packet(Code.SET_SHORT_GROUND_PROTECT)
 
     @property
-    def blank_time(self) -> str:
+    def blank_time(self) -> BlankTime:
         request = struct.pack(">B", Code.GET_BLANK_TIME)
         self._socket.write(request)
-        return BLANK_TIMES[self._read_packet(Code.GET_BLANK_TIME, "B")]
+        return typing.get_args(BlankTime)[self._read_packet(Code.GET_BLANK_TIME, "B")]
 
     @blank_time.setter
-    def blank_time(self, time_value):
-        time_value = BLANK_TIMES.index(time_value.strip().lower())
-        request = struct.pack(">BB", Code.SET_BLANK_TIME, time_value)
+    def blank_time(self, time_value: BlankTime):
+        request = struct.pack(
+            ">BB", Code.SET_BLANK_TIME, typing.get_args(BlankTime).index(time_value)
+        )
         self._socket.write(request)
         self._read_packet(Code.SET_BLANK_TIME)
 
@@ -405,15 +402,16 @@ class FlowController:
         self._read_packet(Code.SET_PWN_AUTOSCALE)
 
     @property
-    def pwm_frequency(self) -> str:
+    def pwm_frequency(self) -> PwmFrequency:
         request = struct.pack(">B", Code.GET_PWM_FREQUENCY)
         self._socket.write(request)
-        return PWM_FREQUENCIES[self._read_packet(Code.GET_PWM_FREQUENCY, "B")]
+        return typing.get_args(PwmFrequency)[self._read_packet(Code.GET_PWM_FREQUENCY, "B")]
 
     @pwm_frequency.setter
-    def pwm_frequency(self, frequency):
-        frequency = PWM_FREQUENCIES.index(frequency.strip().lower())
-        request = struct.pack(">BB", Code.SET_PWM_FREQUENCY, frequency)
+    def pwm_frequency(self, frequency: PwmFrequency):
+        request = struct.pack(
+            ">BB", Code.SET_PWM_FREQUENCY, typing.get_args(PwmFrequency).index(frequency)
+        )
         self._socket.write(request)
         self._read_packet(Code.SET_PWM_FREQUENCY)
 
@@ -556,34 +554,36 @@ class FlowController:
         return self._read_packet(Code.GET_CURRENT_SCALE, "B")
 
     @property
-    def driver_temperature(self) -> str:
+    def driver_temperature(self) -> TemperatureThreshold:
         request = struct.pack(">B", Code.GET_TEMPERATURE)
         self._socket.write(request)
-        return TEMPERATURE_THRESHOLDS[self._read_packet(Code.GET_TEMPERATURE, "B")]
+        return typing.get_args(TemperatureThreshold)[self._read_packet(Code.GET_TEMPERATURE, "B")]
 
     @property
-    def open_load(self) -> str:
+    def open_load(self) -> PhaseStatus:
         request = struct.pack(">B", Code.GET_OPEN_LOAD)
         self._socket.write(request)
-        return PHASE_STATUSES[self._read_packet(Code.GET_OPEN_LOAD, "B")]
+        return typing.get_args(PhaseStatus)[self._read_packet(Code.GET_OPEN_LOAD, "B")]
 
     @property
-    def low_side_short(self) -> str:
+    def low_side_short(self) -> PhaseStatus:
         request = struct.pack(">B", Code.GET_LOW_SIDE_SHORT)
         self._socket.write(request)
-        return PHASE_STATUSES[self._read_packet(Code.GET_LOW_SIDE_SHORT, "B")]
+        return typing.get_args(PhaseStatus)[self._read_packet(Code.GET_LOW_SIDE_SHORT, "B")]
 
     @property
-    def ground_short(self) -> str:
+    def ground_short(self) -> PhaseStatus:
         request = struct.pack(">B", Code.GET_GROUND_SHORT)
         self._socket.write(request)
-        return PHASE_STATUSES[self._read_packet(Code.GET_GROUND_SHORT, "B")]
+        return typing.get_args(PhaseStatus)[self._read_packet(Code.GET_GROUND_SHORT, "B")]
 
     @property
-    def overtemperature(self) -> str:
+    def overtemperature(self) -> OvertemperatureStatus:
         request = struct.pack(">B", Code.GET_OVERTEMPERATURE)
         self._socket.write(request)
-        return OVERTEMPERATURE_STATUSES[self._read_packet(Code.GET_OVERTEMPERATURE, "B")]
+        return typing.get_args(OvertemperatureStatus)[
+            self._read_packet(Code.GET_OVERTEMPERATURE, "B")
+        ]
 
     def _read_packet(self, assert_code: Code, response_format: str = "") -> Any:
         response = self._socket.read()
