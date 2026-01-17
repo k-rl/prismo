@@ -17,78 +17,79 @@ from . import packet
 class Code(IntEnum):
     INIT = 0x00
     FLOW_SENSOR_INFO = 0x01
-    SET_PUMP_RPM = 0x02
-    GET_PUMP_RPM = 0x03
-    GET_RMS_AMPS = 0x0C
-    SET_RMS_AMPS = 0x0D
-    GET_STOP_RMS_AMPS = 0x70
-    SET_STOP_RMS_AMPS = 0x71
-    GET_STOP_MODE = 0x0E
-    SET_STOP_MODE = 0x0F
-    GET_POWERDOWN_DURATION_S = 0x10
-    SET_POWERDOWN_DURATION_S = 0x11
-    GET_POWERDOWN_DELAY_S = 0x12
-    SET_POWERDOWN_DELAY_S = 0x13
-    GET_MICROSTEPS = 0x14
-    SET_MICROSTEPS = 0x15
-    GET_FILTER_STEP_PULSES = 0x18
-    SET_FILTER_STEP_PULSES = 0x19
-    GET_DOUBLE_EDGE_STEP = 0x1A
-    SET_DOUBLE_EDGE_STEP = 0x1B
-    GET_INTERPOLATE_MICROSTEPS = 0x1C
-    SET_INTERPOLATE_MICROSTEPS = 0x1D
-    GET_SHORT_SUPPLY_PROTECT = 0x2C
-    SET_SHORT_SUPPLY_PROTECT = 0x2D
-    GET_SHORT_GROUND_PROTECT = 0x2E
-    SET_SHORT_GROUND_PROTECT = 0x2F
-    GET_BLANK_TIME = 0x30
-    SET_BLANK_TIME = 0x31
-    GET_HYSTERESIS_END = 0x32
-    SET_HYSTERESIS_END = 0x33
-    GET_HYSTERESIS_START = 0x34
-    SET_HYSTERESIS_START = 0x35
-    GET_DECAY_TIME = 0x36
-    SET_DECAY_TIME = 0x37
-    GET_PWM_MAX_RPM = 0x38
-    SET_PWM_MAX_RPM = 0x39
-    GET_DRIVER_SWITCH_AUTOSCALE_LIMIT = 0x3A
-    SET_DRIVER_SWITCH_AUTOSCALE_LIMIT = 0x3B
-    GET_MAX_AMPLITUDE_CHANGE = 0x3C
-    SET_MAX_AMPLITUDE_CHANGE = 0x3D
-    GET_PWM_AUTOGRADIENT = 0x3E
-    SET_PWM_AUTOGRADIENT = 0x3F
-    GET_PWN_AUTOSCALE = 0x40
-    SET_PWN_AUTOSCALE = 0x41
-    GET_PWM_FREQUENCY = 0x42
-    SET_PWM_FREQUENCY = 0x43
-    GET_PWM_GRADIENT = 0x44
-    SET_PWM_GRADIENT = 0x45
-    GET_PWM_OFFSET = 0x46
-    SET_PWM_OFFSET = 0x47
-    GET_CHARGE_PUMP_UNDERVOLTAGE = 0x4C
-    GET_DRIVER_ERROR = 0x4D
-    GET_IS_RESET = 0x4E
-    GET_TRANSMISSION_COUNT = 0x4F
-    GET_DIRECTION_PIN = 0x51
-    GET_DISABLE_PWM_PIN = 0x52
-    GET_STEP_PIN = 0x53
-    GET_POWERDOWN_UART_PIN = 0x54
-    GET_DIAGNOSTIC_PIN = 0x55
-    GET_MICROSTEP2_PIN = 0x56
-    GET_MICROSTEP1_PIN = 0x57
-    GET_DISABLE_PIN = 0x58
-    GET_MICROSTEP_TIME = 0x59
-    GET_MOTOR_LOAD = 0x5A
-    GET_MICROSTEP_POSITION = 0x5B
-    GET_MICROSTEP_CURRENT = 0x5C
-    GET_STOPPED = 0x5D
-    GET_PWM_MODE = 0x5E
-    GET_CURRENT_SCALE = 0x5F
-    GET_TEMPERATURE = 0x60
-    GET_OPEN_LOAD = 0x61
-    GET_LOW_SIDE_SHORT = 0x62
-    GET_GROUND_SHORT = 0x63
-    GET_OVERTEMPERATURE = 0x64
+    SET_FLOW_UL_PER_MIN = 0x02
+    SET_PUMP_RPM = 0x03
+    GET_PUMP_RPM = 0x04
+    GET_RMS_AMPS = 0x05
+    SET_RMS_AMPS = 0x06
+    GET_STOP_RMS_AMPS = 0x07
+    SET_STOP_RMS_AMPS = 0x08
+    GET_STOP_MODE = 0x09
+    SET_STOP_MODE = 0x0A
+    GET_POWERDOWN_DURATION_S = 0x0B
+    SET_POWERDOWN_DURATION_S = 0x0C
+    GET_POWERDOWN_DELAY_S = 0x0D
+    SET_POWERDOWN_DELAY_S = 0x0E
+    GET_MICROSTEPS = 0x0F
+    SET_MICROSTEPS = 0x10
+    GET_FILTER_STEP_PULSES = 0x11
+    SET_FILTER_STEP_PULSES = 0x12
+    GET_DOUBLE_EDGE_STEP = 0x13
+    SET_DOUBLE_EDGE_STEP = 0x14
+    GET_INTERPOLATE_MICROSTEPS = 0x15
+    SET_INTERPOLATE_MICROSTEPS = 0x16
+    GET_SHORT_SUPPLY_PROTECT = 0x17
+    SET_SHORT_SUPPLY_PROTECT = 0x18
+    GET_SHORT_GROUND_PROTECT = 0x19
+    SET_SHORT_GROUND_PROTECT = 0x1A
+    GET_BLANK_TIME = 0x1B
+    SET_BLANK_TIME = 0x1C
+    GET_HYSTERESIS_END = 0x1D
+    SET_HYSTERESIS_END = 0x1E
+    GET_HYSTERESIS_START = 0x1F
+    SET_HYSTERESIS_START = 0x20
+    GET_DECAY_TIME = 0x21
+    SET_DECAY_TIME = 0x22
+    GET_PWM_MAX_RPM = 0x23
+    SET_PWM_MAX_RPM = 0x24
+    GET_DRIVER_SWITCH_AUTOSCALE_LIMIT = 0x25
+    SET_DRIVER_SWITCH_AUTOSCALE_LIMIT = 0x26
+    GET_MAX_AMPLITUDE_CHANGE = 0x27
+    SET_MAX_AMPLITUDE_CHANGE = 0x28
+    GET_PWM_AUTOGRADIENT = 0x29
+    SET_PWM_AUTOGRADIENT = 0x2A
+    GET_PWN_AUTOSCALE = 0x2B
+    SET_PWN_AUTOSCALE = 0x2C
+    GET_PWM_FREQUENCY = 0x2D
+    SET_PWM_FREQUENCY = 0x2E
+    GET_PWM_GRADIENT = 0x2F
+    SET_PWM_GRADIENT = 0x30
+    GET_PWM_OFFSET = 0x31
+    SET_PWM_OFFSET = 0x32
+    GET_CHARGE_PUMP_UNDERVOLTAGE = 0x33
+    GET_DRIVER_ERROR = 0x34
+    GET_IS_RESET = 0x35
+    GET_DIRECTION_PIN = 0x36
+    GET_DISABLE_PWM_PIN = 0x37
+    GET_STEP_PIN = 0x38
+    GET_POWERDOWN_UART_PIN = 0x39
+    GET_DIAGNOSTIC_PIN = 0x3A
+    GET_MICROSTEP2_PIN = 0x3B
+    GET_MICROSTEP1_PIN = 0x3C
+    GET_DISABLE_PIN = 0x3D
+    GET_MICROSTEP_TIME = 0x3E
+    GET_MOTOR_LOAD = 0x3F
+    GET_MICROSTEP_POSITION = 0x40
+    GET_MICROSTEP_CURRENT = 0x41
+    GET_STOPPED = 0x42
+    GET_PWM_MODE = 0x43
+    GET_CURRENT_SCALE = 0x44
+    GET_TEMPERATURE = 0x45
+    GET_OPEN_LOAD = 0x46
+    GET_LOW_SIDE_SHORT = 0x47
+    GET_GROUND_SHORT = 0x48
+    GET_OVERTEMPERATURE = 0x49
+    GET_FLOW_HISTORY = 0x4A
     FAIL = 0xFF
 
 
@@ -121,6 +122,7 @@ class FlowController:
     def __init__(self, name):
         self.name = name
         self._socket = packet.PacketStream()
+        self._ul_per_min = float("nan")
 
     @property
     def air(self) -> bool:
@@ -153,6 +155,17 @@ class FlowController:
         request = struct.pack(">Bd", Code.SET_PUMP_RPM, rpm)
         self._socket.write(request)
         self._read_packet(Code.SET_PUMP_RPM)
+
+    @property
+    def ul_per_min(self) -> float:
+        return self._ul_per_min
+
+    @ul_per_min.setter
+    def ul_per_min(self, ul_per_min: Real):
+        request = struct.pack(">Bd", Code.SET_FLOW_UL_PER_MIN, ul_per_min)
+        self._socket.write(request)
+        self._read_packet(Code.SET_FLOW_UL_PER_MIN)
+        self._ul_per_min = float(ul_per_min)
 
     def sensor_info(self) -> SensorInfo:
         request = struct.pack(">B", Code.FLOW_SENSOR_INFO)
@@ -458,12 +471,6 @@ class FlowController:
         return self._read_packet(Code.GET_IS_RESET, "?")
 
     @property
-    def transmission_count(self) -> int:
-        request = struct.pack(">B", Code.GET_TRANSMISSION_COUNT)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_TRANSMISSION_COUNT, "B")
-
-    @property
     def direction_pin(self) -> bool:
         request = struct.pack(">B", Code.GET_DIRECTION_PIN)
         self._socket.write(request)
@@ -584,6 +591,11 @@ class FlowController:
         return typing.get_args(OvertemperatureStatus)[
             self._read_packet(Code.GET_OVERTEMPERATURE, "B")
         ]
+
+    def flow_history(self) -> list[float]:
+        request = struct.pack(">B", Code.GET_FLOW_HISTORY)
+        self._socket.write(request)
+        return list(self._read_packet(Code.GET_FLOW_HISTORY, "1000d"))
 
     def _read_packet(self, assert_code: Code, response_format: str = "") -> Any:
         response = self._socket.read()
