@@ -1,5 +1,8 @@
+from numbers import Real
+
+
 class Objective:
-    def __init__(self, name, zoom=1):
+    def __init__(self, name: str, zoom: Real = 1):
         self.name = name
         self._zoom = zoom
 
@@ -7,13 +10,13 @@ class Objective:
         pass
 
     @property
-    def state(self):
+    def state(self) -> Real:
         return self._zoom
 
     @state.setter
-    def state(self, new_state):
+    def state(self, new_state: Real):
         self._zoom = new_state
 
     @property
-    def zoom(self):
+    def zoom(self) -> Real:
         return self._zoom

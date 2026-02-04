@@ -7,6 +7,7 @@ import sys
 
 from beartype import BeartypeConf
 from beartype.claw import beartype_all, beartype_this_package
+
 from prismo.control import load
 from prismo.gui import acq, live, multi_acq, tiled_acq
 
@@ -15,8 +16,9 @@ from . import utils
 beartype_this_package()
 beartype_all(conf=BeartypeConf(violation_type=UserWarning))
 
+
 class IndentFormatter(logging.Formatter):
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         formatted_record = super().format(record)
         return formatted_record.replace("\n", "\n    ")
 

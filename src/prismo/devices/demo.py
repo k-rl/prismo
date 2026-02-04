@@ -1,8 +1,9 @@
 import numpy as np
+from pymmcore import CMMCore
 
 
 class Camera:
-    def __init__(self, name: str, core):
+    def __init__(self, name: str, core: CMMCore):
         self.name = name
         self._core = core
         core.loadDevice(name, "DemoCamera", "DCam")
@@ -31,7 +32,7 @@ class Camera:
 
 
 class Stage:
-    def __init__(self, name: str, core):
+    def __init__(self, name: str, core: CMMCore):
         self.name = name
         self._core = core
         core.loadDevice(name, "DemoCamera", "DXYStage")
@@ -66,23 +67,24 @@ class Stage:
 
 
 class Filter:
-    def __init__(self, name: str, core, states=None):
+    def __init__(self, name: str, core: CMMCore, states: list[str] | None = None):
         self.name = name
-        self.states = states
         self._core = core
         core.loadDevice(name, "DemoCamera", "DWheel")
         core.initializeDevice(name)
 
         n_states = self._core.getNumberOfStates(name)
+        assert isinstance(n_states, int)
         if states is None:
             self.states = [i for i in range(n_states)]
         else:
-            if len(self.states) < n_states:
+            if len(states) < n_states:
                 raise ValueError(
-                    f"{name} requires {n_states} states (not {len(self.states)}) to be specified."
+                    f"{name} requires {n_states} states (not {len(states)}) to be specified."
                 )
-            for i, state in enumerate(self.states):
+            for i, state in enumerate(states):
                 self._core.defineStateLabel(name, i, state)
+            self.states = states
 
     def wait(self):
         self._core.waitForDevice(self.name)
@@ -103,14 +105,14 @@ class Filter:
 
 
 class Valves:
-    def __init__(self, name, valves=None):
+    def __init__(self, name: str, valves: list[int] | None = None):
         self.name = name
         if valves is None:
             valves = [i for i in range(48)]
         self.valves = {k: 1 for k in valves}
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int) -> int:
         return self.valves[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: int, value: int | str):
         self.valves[key] = int((value != "off") and (value != 0))
