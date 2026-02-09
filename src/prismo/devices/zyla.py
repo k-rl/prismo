@@ -6,10 +6,11 @@ from pymmcore import CMMCore
 
 class Camera:
     def __init__(
-        self, name: str, core: CMMCore, flip: Literal["none", "ud", "lr", "both"] = "none"
+        self, name: str, core: CMMCore, rotation: Literal[0, 90, 180, 270] = 0, flip: bool = False
     ):
         self.name = name
         self._core = core
+        self._rotation = rotation
         self._flip = flip
         core.loadDevice(name, "AndorSDK3", "Andor sCMOS Camera")
         core.initializeDevice(name)
@@ -18,12 +19,10 @@ class Camera:
         self._core.setCameraDevice(self.name)
         self._core.snapImage()
         img = self._core.getImage()
-        if self._flip == "ud":
-            img = np.flipud(img)
-        elif self._flip == "lr":
+        if self._rotation != 0:
+            img = np.rot90(img, k=self._rotation // 90)
+        if self._flip:
             img = np.fliplr(img)
-        elif self._flip == "both":
-            img = np.flipud(np.fliplr(img))
         return img
 
     def wait(self):
