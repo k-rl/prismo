@@ -9,7 +9,7 @@ from beartype import BeartypeConf
 from beartype.claw import beartype_all, beartype_this_package
 
 from prismo.control import load
-from prismo.gui import acq, live, multi_acq, tiled_acq
+from prismo.session import acq, live, multi_acq, tiled_acq
 
 from . import utils
 

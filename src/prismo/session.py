@@ -178,7 +178,7 @@ class Session:
         self.quit()
 
 
-class LiveClient:
+class LiveView:
     def __init__(self, viewer: Viewer, relay: Relay, widgets: dict[str, Callable[[Relay], Any]]):
         self._viewer = viewer
         self._relay = relay
@@ -201,7 +201,7 @@ class LiveClient:
 
 def live(ctrl: Control) -> Session:
     widgets, widget_routes = init_widgets(ctrl)
-    session = Session(lambda v, r: LiveClient(v, r, widgets=widgets))
+    session = Session(lambda v, r: LiveView(v, r, widgets=widgets))
 
     img = ctrl.snap()
 
@@ -220,7 +220,7 @@ def live(ctrl: Control) -> Session:
     return session
 
 
-class AcqClient:
+class AcquisitionView:
     def __init__(
         self,
         viewer: Viewer,
@@ -370,7 +370,7 @@ def run(run_func: Callable[..., Iterator[Any]]) -> "Runner":
 def acq(ctrl: Control, file: str, acq_func: Callable[[Session], Iterator[Any]]) -> Session:
     widgets, widget_routes = init_widgets(ctrl)
     session = Session(
-        lambda v, r: AcqClient(v, r, file=file, widgets=widgets),
+        lambda v, r: AcquisitionView(v, r, file=file, widgets=widgets),
         file,
         ctrl.snap(),
         dict(acq_func=dill.source.getsource(acq_func)),
@@ -406,7 +406,7 @@ def multi_acq(
 
     widgets, widget_routes = init_widgets(ctrl)
     session = Session(
-        lambda v, r: AcqClient(v, r, file=file, widgets=widgets, multi=True),
+        lambda v, r: AcquisitionView(v, r, file=file, widgets=widgets, multi=True),
         file,
         ctrl.snap(),
         dict(overlap=overlap, acq_func=dill.source.getsource(acq_func)),
@@ -457,7 +457,7 @@ def tiled_acq(
     widgets, widget_routes = init_widgets(ctrl)
     # TODO: Write additional attrs e.g. px_len.
     session = Session(
-        lambda v, r: AcqClient(v, r, file=file, widgets=widgets, tiled=get_pos),
+        lambda v, r: AcquisitionView(v, r, file=file, widgets=widgets, tiled=get_pos),
         file,
         ctrl.snap(),
         dict(overlap=overlap, acq_func=dill.source.getsource(acq_func)),
