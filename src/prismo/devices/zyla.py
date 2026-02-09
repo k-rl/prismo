@@ -1,8 +1,13 @@
+from typing import Literal
+
 import numpy as np
+from pymmcore import CMMCore
 
 
 class Camera:
-    def __init__(self, name, core, flip="none"):
+    def __init__(
+        self, name: str, core: CMMCore, flip: Literal["none", "ud", "lr", "both"] = "none"
+    ):
         self.name = name
         self._core = core
         self._flip = flip

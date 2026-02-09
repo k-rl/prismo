@@ -1,12 +1,13 @@
 import os
+from typing import Any, Self
 
-import pymmcore
+from pymmcore import CMMCore
 
 import prismo.devices as dev
 
 
-def load(config, path=None):
-    core = pymmcore.CMMCore()
+def load(config: dict[str, dict[str, Any]], path: str | None = None) -> "Control":
+    core = CMMCore()
     if path is None:
         if os.name == "nt":
             path = "C:/Program Files/Micro-Manager-2.0"
@@ -84,8 +85,6 @@ def load(config, path=None):
                 devices.append(dev.demo.Stage(name, core))
             case "demo_valves":
                 devices.append(dev.demo.Valves(name, **params))
-            case "fluidic_sipper":
-                devices.append(dev.fluidic.Sipper(name, **params))
             case "fluigent_flowcontroller":
                 devices.append(dev.fluigent.FlowController(name, **params))
             case "lambda_filter1":
@@ -146,7 +145,7 @@ def load(config, path=None):
 
 
 class Control:
-    def __init__(self, core, devices):
+    def __init__(self, core: CMMCore, devices: list[Any]):
         # We can't directly set self.devices = devices since our overriden method
         # depends on self.devices being set.
         super().__setattr__("devices", devices)
@@ -271,7 +270,7 @@ class Control:
     def close(self):
         self._core.reset()
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):

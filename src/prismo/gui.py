@@ -1,4 +1,6 @@
 import threading
+from collections.abc import Callable, Generator
+from typing import Any
 
 import dask.array as da
 import dill
@@ -7,31 +9,40 @@ import napari
 import numpy as np
 import xarray as xr
 import zarr as zr
+from multiprocess.connection import Connection
+from napari import Viewer
 from qtpy.QtCore import QTimer
 from zarr.errors import ContainsGroupError
 
+from .control import Control
 from .widgets import BoundarySelector, PositionSelector, init_widgets
 
 
 class Relay:
-    def __init__(self, pipe, path=""):
+    def __init__(self, pipe: Connection, path: str = ""):
         self._path = path
         self._pipe = pipe
 
-    def subpath(self, path):
+    def subpath(self, path: str) -> "Relay":
         return Relay(self._pipe, self._path + path + "/")
 
-    def get(self, route, *args, **kwargs):
+    def get(self, route: str, *args: Any, **kwargs: Any) -> Any:
         self._pipe.send([self._path + route, args, kwargs])
         return self._pipe.recv()
 
-    def post(self, route, *args, **kwargs):
+    def post(self, route: str, *args: Any, **kwargs: Any):
         self._pipe.send([self._path + route, args, kwargs])
 
 
 class GUI:
-    def __init__(self, init_client, file=None, tile=None, attrs=None):
-        def run_gui(pipe):
+    def __init__(
+        self,
+        init_client: Callable[[Viewer, Relay], Any],
+        file: str | None = None,
+        tile: np.ndarray | None = None,
+        attrs: dict[str, Any] | None = None,
+    ):
+        def run_gui(pipe: Connection):
             viewer = napari.Viewer()
             relay = Relay(pipe)
             # Save the client in a variable so it doesn't get garbage collected.
@@ -39,7 +50,7 @@ class GUI:
             napari.run()
             pipe.close()
 
-        def run_router(pipe, quit):
+        def run_router(pipe: Connection, quit: threading.Event):
             while not quit.is_set():
                 try:
                     route, args, kwargs = pipe.recv()
@@ -58,10 +69,10 @@ class GUI:
         ctx = multiprocess.get_context("spawn")
         self._pipe, child_pipe = ctx.Pipe()
         self._gui_process = ctx.Process(target=run_gui, args=(child_pipe,))
-        self._workers = []
+        self._workers: list[threading.Thread] = []
         self._router = threading.Thread(target=run_router, args=(self._pipe, self._quit))
-        self._routes = {}
-        self._arrays = {}
+        self._routes: dict[str, Callable[..., Any]] = {}
+        self._arrays: dict[str, xr.DataArray] = {}
         self._array_lock = threading.Lock()
         self._file = file
         self._tile = tile
@@ -86,7 +97,7 @@ class GUI:
             self._gui_process.terminate()
         self._pipe.close()
 
-    def worker(self, func):
+    def worker[T: Callable[..., Generator[Any, Any, Any]]](self, func: T) -> T:
         def run_worker():
             for _ in func():
                 self._running.wait()
@@ -97,10 +108,12 @@ class GUI:
 
         return func
 
-    def route(self, name, func=None):
+    def route[T: Callable[..., Any]](
+        self, name: str, func: T | None = None
+    ) -> T | Callable[[T], T]:
         if func is None:
             # route got called as a decorator.
-            def decorator(func):
+            def decorator(func: T) -> T:
                 self._routes[name] = func
                 return func
 
@@ -108,8 +121,9 @@ class GUI:
         else:
             # route got called as a standard method.
             self._routes[name] = func
+            return func
 
-    def array(self, name, **dims):
+    def array(self, name: str, **dims: int | list[Any]) -> xr.DataArray:
         shape = tuple(x if isinstance(x, int) else len(x) for x in dims.values())
         xp = xr.DataArray(
             data=da.zeros(
@@ -155,7 +169,7 @@ class GUI:
         return xp
 
     @property
-    def arrays(self):
+    def arrays(self) -> dict[str, xr.DataArray]:
         with self._array_lock:
             arrs = dict(self._arrays)
         return arrs
@@ -165,7 +179,7 @@ class GUI:
 
 
 class LiveClient:
-    def __init__(self, viewer, relay, widgets):
+    def __init__(self, viewer: Viewer, relay: Relay, widgets: dict[str, Callable[[Relay], Any]]):
         self._viewer = viewer
         self._relay = relay
         img = self._relay.get("img")
@@ -185,7 +199,7 @@ class LiveClient:
         self._viewer.layers[0].data = img
 
 
-def live(ctrl):
+def live(ctrl: Control) -> GUI:
     widgets, widget_routes = init_widgets(ctrl)
     gui = GUI(lambda v, r: LiveClient(v, r, widgets=widgets))
 
@@ -207,15 +221,23 @@ def live(ctrl):
 
 
 class AcqClient:
-    def __init__(self, viewer, relay, file, widgets, tiled=False, multi=False):
+    def __init__(
+        self,
+        viewer: Viewer,
+        relay: Relay,
+        file: str,
+        widgets: dict[str, Callable[[Relay], Any]],
+        tiled: bool = False,
+        multi: bool = False,
+    ):
         self._viewer = viewer
         self._relay = relay
         self._file = file
         self._live_timer = QTimer()
         self._refresh_timer = QTimer()
-        self._arrays = set()
-        self._imgs = {}
-        self._contrast_set = set()
+        self._arrays: set[str] = set()
+        self._imgs: dict[str, xr.DataArray] = {}
+        self._contrast_set: set[str] = set()
 
         if tiled or multi:
             img = self._relay.get("img")
@@ -245,7 +267,7 @@ class AcqClient:
             )
             tabify = True
 
-    def start_acq(self, *args):
+    def start_acq(self, *args: Any):
         self._live_timer.disconnect()
         self._live_timer.stop()
         self._viewer.layers.remove("live")
@@ -313,7 +335,7 @@ class AcqClient:
         self._viewer.layers[0].data = img
 
 
-def run(run_func):
+def run(run_func: Callable[..., Generator[Any, Any, Any]]) -> "Runner":
     class Runner:
         def __init__(self):
             self._running = threading.Event()
@@ -345,7 +367,7 @@ def run(run_func):
     return Runner()
 
 
-def acq(ctrl, file, acq_func):
+def acq(ctrl: Control, file: str, acq_func: Callable[[GUI], Generator[Any, Any, Any]]) -> GUI:
     widgets, widget_routes = init_widgets(ctrl)
     gui = GUI(
         lambda v, r: AcqClient(v, r, file=file, widgets=widgets),
@@ -372,9 +394,14 @@ def acq(ctrl, file, acq_func):
     return gui
 
 
-def multi_acq(ctrl, file, acq_func, overlap=0.0):
+def multi_acq(
+    ctrl: Control,
+    file: str,
+    acq_func: Callable[[GUI, list[tuple[float, float]]], Generator[Any, Any, Any]],
+    overlap: float = 0.0,
+) -> GUI:
     tile = ctrl.snap()
-    pos = [None]
+    pos: list[list[tuple[float, float]] | None] = [None]
     acq_event = threading.Event()
 
     widgets, widget_routes = init_widgets(ctrl)
@@ -414,9 +441,16 @@ def multi_acq(ctrl, file, acq_func, overlap=0.0):
     return gui
 
 
-def tiled_acq(ctrl, file, acq_func, overlap, top_left=None, bot_right=None):
+def tiled_acq(
+    ctrl: Control,
+    file: str,
+    acq_func: Callable[[GUI, np.ndarray, np.ndarray], Generator[Any, Any, Any]],
+    overlap: float,
+    top_left: tuple[float, float] | None = None,
+    bot_right: tuple[float, float] | None = None,
+) -> GUI:
     tile = ctrl.snap()
-    pos = [None, None]
+    pos: list[np.ndarray | None] = [None, None]
     get_pos = top_left is None or bot_right is None
     acq_event = threading.Event()
 
@@ -471,7 +505,12 @@ class DiskArray(da.core.Array):
         self._zarr_array[key] = value
 
 
-def tile_coords(ctrl, top_left, bot_right, overlap):
+def tile_coords(
+    ctrl: Control,
+    top_left: tuple[float, float],
+    bot_right: tuple[float, float],
+    overlap: float,
+) -> tuple[np.ndarray, np.ndarray]:
     tile = ctrl.snap()
     width = tile.shape[1]
     height = tile.shape[0]
@@ -484,7 +523,7 @@ def tile_coords(ctrl, top_left, bot_right, overlap):
     return xs, ys
 
 
-def tiles_to_image(xp):
+def tiles_to_image(xp: xr.DataArray) -> xr.DataArray:
     if "overlap" not in xp.attrs:
         return xp.transpose(..., "y", "x")
 

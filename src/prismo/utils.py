@@ -1,10 +1,14 @@
 import time
+from collections.abc import Callable, Iterator
+from typing import Any, Concatenate, ParamSpec
 
 from .gui import run
 
+P = ParamSpec("P")
 
-def run_async(func):
-    def wrapper(blocking=False, *args, **kwargs):
+
+def run_async[**P](func: Callable[P, Iterator[Any]]) -> Callable[Concatenate[bool, P], Any]:
+    def wrapper(blocking: bool = False, *args: P.args, **kwargs: P.kwargs) -> Any:
         def run_func():
             yield from func(*args, **kwargs)
 
@@ -16,7 +20,7 @@ def run_async(func):
     return wrapper
 
 
-def sleep(seconds: float):
+def sleep(seconds: float) -> Iterator[None]:
     """Interruptable sleep."""
     start = time.time()
     while time.time() - start < seconds:

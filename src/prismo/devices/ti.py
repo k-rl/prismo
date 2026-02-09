@@ -1,7 +1,13 @@
+from numbers import Real
+
+from pymmcore import CMMCore
+
+
 class Filter:
-    def __init__(self, name, core, filter, states=None):
+    def __init__(self, name: str, core: CMMCore, filter: int, states: list[str] | None = None):
         self.name = name
         self._core = core
+        self.states: list[int] | list[str]
         if "ti_scope" not in core.getLoadedDevices():
             core.loadDevice("ti_scope", "NikonTI", "TIScope")
             core.initializeDevice("ti_scope")
@@ -25,14 +31,14 @@ class Filter:
         self._core.waitForDevice(self.name)
 
     @property
-    def state(self):
+    def state(self) -> int | str:
         if isinstance(self.states[0], int):
             return self._core.getState(self.name)
         else:
             return self._core.getStateLabel(self.name)
 
     @state.setter
-    def state(self, new_state):
+    def state(self, new_state: int | str):
         # Run set state twice because ti1 scopes will reset the state to 0 when
         # the filter wheel is manually moved no matter the value of new_state.
         if isinstance(new_state, int):
@@ -44,7 +50,7 @@ class Filter:
 
 
 class LightPath:
-    def __init__(self, name, core, states=None):
+    def __init__(self, name: str, core: CMMCore, states: list[str] | None = None):
         self.name = name
         self._core = core
         if "ti_scope" not in core.getLoadedDevices():
@@ -64,14 +70,14 @@ class LightPath:
         self._core.waitForDevice(self.name)
 
     @property
-    def state(self):
+    def state(self) -> int | str:
         if isinstance(self.states[0], int):
             return self._core.getState(self.name)
         else:
             return self._core.getStateLabel(self.name)
 
     @state.setter
-    def state(self, new_state):
+    def state(self, new_state: int | str):
         if isinstance(new_state, int):
             self._core.setState(self.name, new_state)
         else:
@@ -79,9 +85,12 @@ class LightPath:
 
 
 class Objective:
-    def __init__(self, name, core, zooms, states=None):
+    def __init__(
+        self, name: str, core: CMMCore, zooms: list[Real], states: list[str] | None = None
+    ):
         self.name = name
         self._core = core
+        self.states: list[int] | list[str]
         if "ti_scope" not in core.getLoadedDevices():
             core.loadDevice("ti_scope", "NikonTI", "TIScope")
             core.initializeDevice("ti_scope")
@@ -106,26 +115,26 @@ class Objective:
         self._core.waitForDevice(self.name)
 
     @property
-    def state(self):
+    def state(self) -> int | str:
         if isinstance(self.states[0], int):
             return self._core.getState(self.name)
         else:
             return self._core.getStateLabel(self.name)
 
     @state.setter
-    def state(self, new_state):
+    def state(self, new_state: int | str):
         if isinstance(new_state, int):
             self._core.setState(self.name, new_state)
         else:
             self._core.setStateLabel(self.name, new_state)
 
     @property
-    def zoom(self):
+    def zoom(self) -> Real:
         return self.zooms[self.state]
 
 
 class Focus:
-    def __init__(self, name, core):
+    def __init__(self, name: str, core: CMMCore):
         self.name = name
         self._core = core
         if "ti_scope" not in core.getLoadedDevices():
@@ -139,9 +148,9 @@ class Focus:
         self._core.waitForDevice(self.name)
 
     @property
-    def z(self):
+    def z(self) -> float:
         return self._core.getPosition(self.name)
 
     @z.setter
-    def z(self, new_z):
-        self._core.setPosition(self.name, new_z)
+    def z(self, new_z: Real):
+        self._core.setPosition(self.name, float(new_z))

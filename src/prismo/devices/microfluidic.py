@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from typing import Literal
 
 import numpy as np
@@ -20,17 +21,15 @@ class ValveDriver:
         addr = idx + 512
         return "open" if self._client.read_coils(addr).bits[0] else "closed"
 
-    def __setitem__(self, idx: int, state: Literal["closed", "open", 1, 0] | bool):
+    def __setitem__(self, idx: int, state: Literal["closed", "open"]):
         if idx < 0 or idx >= self._num_valves:
             raise IndexError(f"Invalid valve index {idx}.")
-        if state not in ("closed", "open", 1, 0, True, False):
-            raise ValueError(f"Invalid state {state}.")
-        self._client.write_coil(idx, (state == "open") or (state == 0))
+        self._client.write_coil(idx, state == "open")
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self._num_valves
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Literal["closed", "open"]]:
         for v in range(self._num_valves):
             yield self[v]
 
@@ -40,7 +39,7 @@ class Valves:
         self._valves = utils.to_list(valves)
         self._driver = driver
 
-    def __eq__(self, other: str):
+    def __eq__(self, other: object) -> bool:
         is_open = [self._driver[v] == "open" for v in self._valves]
         if other == "open":
             return all(is_open)
@@ -52,13 +51,13 @@ class Valves:
     def __getitem__(self, idx: int) -> Literal["closed", "open"]:
         return self._driver[self._valves[idx]]
 
-    def __setitem__(self, idx: int, state: Literal["closed", "open", 1, 0] | bool):
+    def __setitem__(self, idx: int, state: Literal["closed", "open"]):
         self._driver[self._valves[idx]] = state
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._valves)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         # TODO: Revisit whether we want repr to be unambiguous.
         return ", ".join(f"'{self[k]}'" for k in range(len(self._valves)))
 
@@ -72,23 +71,26 @@ class TreeValves:
         states: dict[str, str] | list[str] | None = None,
     ):
         # Convert states to always be dicts.
-        if states is None:
-            states = [i for i in range(2 ** len(zeros))]
-        if isinstance(states, list):
-            states = {s: f"{i:0{len(zeros)}b}" for i, s in enumerate(states)}
+        processed: dict[str | int, str]
+        if not isinstance(states, dict):
+            items = states if states is not None else list(range(2 ** len(zeros)))
+            processed = {s: f"{i:0{len(zeros)}b}" for i, s in enumerate(items)}
+        else:
+            processed = states
+
         # Make sure we have all states where one path is open.
         for i in range(2 ** len(zeros)):
-            if i not in states:
-                states[i] = f"{i:b}"
+            if i not in processed:
+                processed[i] = f"{i:b}"
         # Check validity of state dict values.
-        for v in states.values():
+        for v in processed.values():
             if len(v) != len(zeros):
                 raise ValueError(f"Invalid state {v}. States must be of length {len(zeros)}.")
             elif not all(x in ["0", "1", "_", "x"] for x in v):
                 raise ValueError(f"Invalid state {v}. States must only contain 0, 1, _, and x.")
 
-        self._labels_to_states = states
-        self._states_to_labels = {value: key for key, value in states.items()}
+        self._labels_to_states = processed
+        self._states_to_labels = {value: key for key, value in processed.items()}
         self._zeros = zeros
         self._ones = ones
         self._all = zeros + ones
@@ -152,7 +154,8 @@ class Chip:
             str, dict[Literal["states", 0, 1], list[str] | dict[str, str]] | list[int] | int
         ],
     ):
-        mapping = {
+        processed: dict[str, TreeValves | Valves]
+        processed = {
             k: TreeValves(zeros=v[0], ones=v[1], states=v.get("states"), driver=driver)
             if isinstance(v, dict)
             else Valves(valves=v, driver=driver)
@@ -160,7 +163,7 @@ class Chip:
         }
         # We can't directly set self._mapping = mapping since our overriden __setattr__
         # depends on self._mapping being set. Same for name and _driver.
-        super().__setattr__("_mapping", mapping)
+        super().__setattr__("_mapping", processed)
         super().__setattr__("name", name)
         super().__setattr__("_driver", driver)
 
