@@ -1,5 +1,5 @@
 import threading
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import dask.array as da
@@ -34,7 +34,7 @@ class Relay:
         self._pipe.send([self._path + route, args, kwargs])
 
 
-class GUI:
+class Session:
     def __init__(
         self,
         init_client: Callable[[Viewer, Relay], Any],
@@ -42,7 +42,7 @@ class GUI:
         tile: np.ndarray | None = None,
         attrs: dict[str, Any] | None = None,
     ):
-        def run_gui(pipe: Connection):
+        def run_client(pipe: Connection):
             viewer = napari.Viewer()
             relay = Relay(pipe)
             # Save the client in a variable so it doesn't get garbage collected.
@@ -68,7 +68,7 @@ class GUI:
         self._quit = threading.Event()
         ctx = multiprocess.get_context("spawn")
         self._pipe, child_pipe = ctx.Pipe()
-        self._gui_process = ctx.Process(target=run_gui, args=(child_pipe,))
+        self._client_process = ctx.Process(target=run_client, args=(child_pipe,))
         self._workers: list[threading.Thread] = []
         self._router = threading.Thread(target=run_router, args=(self._pipe, self._quit))
         self._routes: dict[str, Callable[..., Any]] = {}
@@ -79,7 +79,7 @@ class GUI:
         self._attrs = attrs if attrs is not None else {}
 
     def start(self):
-        self._gui_process.start()
+        self._client_process.start()
         for worker in self._workers:
             worker.start()
         self._router.start()
@@ -93,11 +93,11 @@ class GUI:
     def quit(self):
         self._running.set()
         self._quit.set()
-        if self._gui_process.is_alive():
-            self._gui_process.terminate()
+        if self._client_process.is_alive():
+            self._client_process.terminate()
         self._pipe.close()
 
-    def worker[T: Callable[..., Generator[Any, Any, Any]]](self, func: T) -> T:
+    def worker[T: Callable[..., Iterator[Any]]](self, func: T) -> T:
         def run_worker():
             for _ in func():
                 self._running.wait()
@@ -199,25 +199,25 @@ class LiveClient:
         self._viewer.layers[0].data = img
 
 
-def live(ctrl: Control) -> GUI:
+def live(ctrl: Control) -> Session:
     widgets, widget_routes = init_widgets(ctrl)
-    gui = GUI(lambda v, r: LiveClient(v, r, widgets=widgets))
+    session = Session(lambda v, r: LiveClient(v, r, widgets=widgets))
 
     img = ctrl.snap()
 
-    @gui.worker
+    @session.worker
     def snap():
         while True:
             img[:] = ctrl.snap()
             yield
 
-    gui.route("img", lambda: img)
+    session.route("img", lambda: img)
     for name, func in widget_routes.items():
-        gui.route(name, func)
+        session.route(name, func)
 
-    gui.start()
+    session.start()
 
-    return gui
+    return session
 
 
 class AcqClient:
@@ -335,7 +335,7 @@ class AcqClient:
         self._viewer.layers[0].data = img
 
 
-def run(run_func: Callable[..., Generator[Any, Any, Any]]) -> "Runner":
+def run(run_func: Callable[..., Iterator[Any]]) -> "Runner":
     class Runner:
         def __init__(self):
             self._running = threading.Event()
@@ -367,88 +367,88 @@ def run(run_func: Callable[..., Generator[Any, Any, Any]]) -> "Runner":
     return Runner()
 
 
-def acq(ctrl: Control, file: str, acq_func: Callable[[GUI], Generator[Any, Any, Any]]) -> GUI:
+def acq(ctrl: Control, file: str, acq_func: Callable[[Session], Iterator[Any]]) -> Session:
     widgets, widget_routes = init_widgets(ctrl)
-    gui = GUI(
+    session = Session(
         lambda v, r: AcqClient(v, r, file=file, widgets=widgets),
         file,
         ctrl.snap(),
         dict(acq_func=dill.source.getsource(acq_func)),
     )
 
-    @gui.worker
+    @session.worker
     def acq():
         store = zr.storage.LocalStore(file)
-        for _ in acq_func(gui):
-            for name, xp in gui.arrays.items():
+        for _ in acq_func(session):
+            for name, xp in session.arrays.items():
                 xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
                     store, group=name, compute=False, mode="a"
                 )
             yield
 
-    gui.route("arrays", lambda: set(gui.arrays.keys()))
+    session.route("arrays", lambda: set(session.arrays.keys()))
     for name, func in widget_routes.items():
-        gui.route(name, func)
+        session.route(name, func)
 
-    gui.start()
-    return gui
+    session.start()
+    return session
 
 
 def multi_acq(
     ctrl: Control,
     file: str,
-    acq_func: Callable[[GUI, list[tuple[float, float]]], Generator[Any, Any, Any]],
+    acq_func: Callable[[Session, list[tuple[float, float]]], Iterator[Any]],
     overlap: float = 0.0,
-) -> GUI:
+) -> Session:
     tile = ctrl.snap()
     pos: list[list[tuple[float, float]] | None] = [None]
     acq_event = threading.Event()
 
     widgets, widget_routes = init_widgets(ctrl)
-    gui = GUI(
+    session = Session(
         lambda v, r: AcqClient(v, r, file=file, widgets=widgets, multi=True),
         file,
         ctrl.snap(),
         dict(overlap=overlap, acq_func=dill.source.getsource(acq_func)),
     )
 
-    @gui.worker
+    @session.worker
     def acq():
         while not acq_event.is_set():
             tile[:] = ctrl.snap()
             yield
 
         store = zr.storage.LocalStore(file)
-        for _ in acq_func(gui, pos[0]):
-            for name, xp in gui.arrays.items():
+        for _ in acq_func(session, pos[0]):
+            for name, xp in session.arrays.items():
                 xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
                     store, group=name, compute=False, mode="a"
                 )
             yield
 
-    @gui.route("start_acq")
+    @session.route("start_acq")
     def start_acq(xys):
         pos[0] = xys
         acq_event.set()
 
-    gui.route("img", lambda: tile)
-    gui.route("xy", lambda: ctrl.xy)
-    gui.route("arrays", lambda: set(gui.arrays.keys()))
+    session.route("img", lambda: tile)
+    session.route("xy", lambda: ctrl.xy)
+    session.route("arrays", lambda: set(session.arrays.keys()))
     for name, func in widget_routes.items():
-        gui.route(name, func)
+        session.route(name, func)
 
-    gui.start()
-    return gui
+    session.start()
+    return session
 
 
 def tiled_acq(
     ctrl: Control,
     file: str,
-    acq_func: Callable[[GUI, np.ndarray, np.ndarray], Generator[Any, Any, Any]],
+    acq_func: Callable[[Session, np.ndarray, np.ndarray], Iterator[Any]],
     overlap: float,
     top_left: tuple[float, float] | None = None,
     bot_right: tuple[float, float] | None = None,
-) -> GUI:
+) -> Session:
     tile = ctrl.snap()
     pos: list[np.ndarray | None] = [None, None]
     get_pos = top_left is None or bot_right is None
@@ -456,14 +456,14 @@ def tiled_acq(
 
     widgets, widget_routes = init_widgets(ctrl)
     # TODO: Write additional attrs e.g. px_len.
-    gui = GUI(
+    session = Session(
         lambda v, r: AcqClient(v, r, file=file, widgets=widgets, tiled=get_pos),
         file,
         ctrl.snap(),
         dict(overlap=overlap, acq_func=dill.source.getsource(acq_func)),
     )
 
-    @gui.worker
+    @session.worker
     def acq():
         if get_pos:
             while not acq_event.is_set():
@@ -474,28 +474,28 @@ def tiled_acq(
             xs, ys = tile_coords(ctrl, top_left, bot_right, overlap)
 
         store = zr.storage.LocalStore(file)
-        for _ in acq_func(gui, xs, ys):
-            for name, xp in gui.arrays.items():
+        for _ in acq_func(session, xs, ys):
+            for name, xp in session.arrays.items():
                 xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
                     store, group=name, compute=False, mode="a"
                 )
             yield
 
-    @gui.route("start_acq")
+    @session.route("start_acq")
     def start_acq(top_left, bot_right):
         xs, ys = tile_coords(ctrl, top_left, bot_right, overlap)
         pos[0] = xs
         pos[1] = ys
         acq_event.set()
 
-    gui.route("img", lambda: tile)
-    gui.route("xy", lambda: ctrl.xy)
-    gui.route("arrays", lambda: set(gui.arrays.keys()))
+    session.route("img", lambda: tile)
+    session.route("xy", lambda: ctrl.xy)
+    session.route("arrays", lambda: set(session.arrays.keys()))
     for name, func in widget_routes.items():
-        gui.route(name, func)
+        session.route(name, func)
 
-    gui.start()
-    return gui
+    session.start()
+    return session
 
 
 class DiskArray(da.core.Array):
