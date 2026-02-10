@@ -13,8 +13,8 @@ from prismo.session import acq, live, multi_acq, tiled_acq
 
 from . import utils
 
-beartype_this_package()
-beartype_all(conf=BeartypeConf(violation_type=UserWarning))
+beartype_this_package(conf=BeartypeConf(is_pep484_tower=True))
+beartype_all(conf=BeartypeConf(violation_type=UserWarning, is_pep484_tower=True))
 
 
 class IndentFormatter(logging.Formatter):

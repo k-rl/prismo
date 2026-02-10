@@ -1,5 +1,3 @@
-from numbers import Real
-
 from pymmcore import CMMCore
 
 
@@ -86,7 +84,7 @@ class LightPath:
 
 class Objective:
     def __init__(
-        self, name: str, core: CMMCore, zooms: list[Real], states: list[str] | None = None
+        self, name: str, core: CMMCore, zooms: list[float], states: list[str] | None = None
     ):
         self.name = name
         self._core = core
@@ -129,7 +127,7 @@ class Objective:
             self._core.setStateLabel(self.name, new_state)
 
     @property
-    def zoom(self) -> Real:
+    def zoom(self) -> float:
         return self.zooms[self.state]
 
 
@@ -152,5 +150,5 @@ class Focus:
         return self._core.getPosition(self.name)
 
     @z.setter
-    def z(self, new_z: Real):
+    def z(self, new_z: float):
         self._core.setPosition(self.name, float(new_z))

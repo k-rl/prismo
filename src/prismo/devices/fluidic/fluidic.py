@@ -2,7 +2,6 @@ import struct
 import typing
 from dataclasses import dataclass
 from enum import IntEnum
-from numbers import Real
 from typing import Any, Literal
 
 from . import packet
@@ -145,7 +144,7 @@ class FlowController:
         return self._read_packet(Code.GET_PUMP_RPM, "d")
 
     @rpm.setter
-    def rpm(self, rpm: Real):
+    def rpm(self, rpm: float):
         request = struct.pack(">Bd", Code.SET_PUMP_RPM, rpm)
         self._socket.write(request)
         self._read_packet(Code.SET_PUMP_RPM)
@@ -155,7 +154,7 @@ class FlowController:
         return self._ul_per_min
 
     @ul_per_min.setter
-    def ul_per_min(self, ul_per_min: Real):
+    def ul_per_min(self, ul_per_min: float):
         request = struct.pack(">Bd", Code.SET_FLOW_UL_PER_MIN, ul_per_min)
         self._socket.write(request)
         self._read_packet(Code.SET_FLOW_UL_PER_MIN)
@@ -173,7 +172,7 @@ class FlowController:
         return self._read_packet(Code.GET_RMS_AMPS, "d")
 
     @rms_amps.setter
-    def rms_amps(self, amps: Real):
+    def rms_amps(self, amps: float):
         request = struct.pack(">Bd", Code.SET_RMS_AMPS, amps)
         self._socket.write(request)
         self._read_packet(Code.SET_RMS_AMPS)
@@ -185,7 +184,7 @@ class FlowController:
         return self._read_packet(Code.GET_STOP_RMS_AMPS, "d")
 
     @stop_rms_amps.setter
-    def stop_rms_amps(self, amps: Real):
+    def stop_rms_amps(self, amps: float):
         request = struct.pack(">Bd", Code.SET_STOP_RMS_AMPS, amps)
         self._socket.write(request)
         self._read_packet(Code.SET_STOP_RMS_AMPS)
@@ -209,7 +208,7 @@ class FlowController:
         return self._read_packet(Code.GET_POWERDOWN_DURATION_S, "d")
 
     @powerdown_duration_s.setter
-    def powerdown_duration_s(self, duration: Real):
+    def powerdown_duration_s(self, duration: float):
         request = struct.pack(">Bd", Code.SET_POWERDOWN_DURATION_S, duration)
         self._socket.write(request)
         self._read_packet(Code.SET_POWERDOWN_DURATION_S)
@@ -221,7 +220,7 @@ class FlowController:
         return self._read_packet(Code.GET_POWERDOWN_DELAY_S, "d")
 
     @powerdown_delay_s.setter
-    def powerdown_delay_s(self, delay: Real):
+    def powerdown_delay_s(self, delay: float):
         request = struct.pack(">Bd", Code.SET_POWERDOWN_DELAY_S, delay)
         self._socket.write(request)
         self._read_packet(Code.SET_POWERDOWN_DELAY_S)
@@ -355,7 +354,7 @@ class FlowController:
         return self._read_packet(Code.GET_PWM_MAX_RPM, "d")
 
     @pwm_max_rpm.setter
-    def pwm_max_rpm(self, rpm: Real):
+    def pwm_max_rpm(self, rpm: float):
         request = struct.pack(">Bd", Code.SET_PWM_MAX_RPM, rpm)
         self._socket.write(request)
         self._read_packet(Code.SET_PWM_MAX_RPM)

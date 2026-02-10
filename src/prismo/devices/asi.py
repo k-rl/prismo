@@ -1,5 +1,3 @@
-from numbers import Real
-
 import numpy as np
 from pymmcore import CMMCore
 
@@ -20,7 +18,7 @@ class Stage:
         return self._core.getXPosition(self.name)
 
     @x.setter
-    def x(self, new_x: Real):
+    def x(self, new_x: float):
         self._core.setXYPosition(self.name, float(new_x), self.y)
 
     @property
@@ -28,7 +26,7 @@ class Stage:
         return self._core.getYPosition(self.name)
 
     @y.setter
-    def y(self, new_y: Real):
+    def y(self, new_y: float):
         self._core.setXYPosition(self.name, self.x, float(new_y))
 
     @property
@@ -36,7 +34,7 @@ class Stage:
         return np.array(self._core.getXYPosition(self.name))
 
     @xy.setter
-    def xy(self, new_xy: tuple[Real, Real]):
+    def xy(self, new_xy: tuple[float, float]):
         self._core.setXYPosition(self.name, float(new_xy[0]), float(new_xy[1]))
 
 
@@ -57,5 +55,5 @@ class Focus:
         return self._core.getPosition(self.name)
 
     @z.setter
-    def z(self, new_z: Real):
+    def z(self, new_z: float):
         self._core.setPosition(self.name, float(new_z))
