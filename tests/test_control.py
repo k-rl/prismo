@@ -80,12 +80,12 @@ def test_px_len(mock_core):
 
     assert c.px_len == 1.0
 
-    obj = Objective("40x", zoom=4.0)
+    obj = Objective("4x", zoom=4.0)
     c = Control(mock_core, devices=[camera, obj])
 
     assert c.px_len == 0.25
 
-    obj2 = Objective("relay", zoom=1.5)
+    obj2 = Objective("1.5x", zoom=1.5)
     c = Control(mock_core, devices=[camera, obj, obj2])
 
     assert abs(c.px_len - 1 / 6) < 0.001
