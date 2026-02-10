@@ -3,9 +3,6 @@ class Objective:
         self.name = name
         self._zoom = zoom
 
-    def wait(self):
-        pass
-
     @property
     def state(self) -> float:
         return self._zoom
