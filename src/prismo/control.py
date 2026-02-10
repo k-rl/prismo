@@ -181,8 +181,12 @@ class Control:
         return self._camera
 
     @camera.setter
-    def camera(self, new_camera):
-        self._camera = self.devices[new_camera]
+    def camera(self, name: str):
+        for device in self.devices:
+            if device.name == name and isinstance(device, dev.Camera):
+                self._camera = device
+                return
+        raise ValueError(f"Camera '{name}' not found.")
 
     def snap(self):
         return self._camera.snap()
@@ -208,8 +212,12 @@ class Control:
         return self._focus
 
     @focus.setter
-    def focus(self, new_focus):
-        self._focus = self.devices[new_focus]
+    def focus(self, name: str):
+        for device in self.devices:
+            if device.name == name and isinstance(device, dev.Focus):
+                self._focus = device
+                return
+        raise ValueError(f"Focus '{name}' not found.")
 
     @property
     def z(self):
@@ -224,8 +232,12 @@ class Control:
         return self._stage
 
     @stage.setter
-    def stage(self, new_stage):
-        self._stage = self.devices[new_stage]
+    def stage(self, name: str):
+        for device in self.devices:
+            if device.name == name and isinstance(device, dev.Stage):
+                self._stage = device
+                return
+        raise ValueError(f"Stage '{name}' not found.")
 
     @property
     def x(self):
