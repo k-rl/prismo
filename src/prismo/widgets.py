@@ -16,7 +16,7 @@ from qtpy.QtWidgets import (
 
 from . import devices
 from .control import Control
-from .gui import Relay
+from .session import Relay
 
 
 def init_widgets(

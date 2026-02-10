@@ -1,23 +1,5 @@
 import time
-from collections.abc import Callable, Iterator
-from typing import Any, Concatenate, ParamSpec
-
-from .run import run
-
-P = ParamSpec("P")
-
-
-def run_async[**P](func: Callable[P, Iterator[Any]]) -> Callable[Concatenate[bool, P], Any]:
-    def wrapper(blocking: bool = False, *args: P.args, **kwargs: P.kwargs) -> Any:
-        def run_func(_session):
-            yield from func(*args, **kwargs)
-
-        session = run(run_func)
-        if blocking:
-            session.join()
-        return session
-
-    return wrapper
+from collections.abc import Iterator
 
 
 def sleep(seconds: float) -> Iterator[None]:

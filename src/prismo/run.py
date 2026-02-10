@@ -1,6 +1,6 @@
 import threading
 from collections.abc import Callable, Iterator
-from typing import Any
+from typing import Any, Concatenate
 
 import dill
 import numpy as np
@@ -10,6 +10,19 @@ from .control import Control
 from .session import Session
 from .views import AcquisitionView, LiveView
 from .widgets import init_widgets
+
+
+def run_async[**P](func: Callable[P, Iterator[Any]]) -> Callable[Concatenate[bool, P], Any]:
+    def wrapper(blocking: bool = False, *args: P.args, **kwargs: P.kwargs) -> Any:
+        def run_func(_session):
+            yield from func(*args, **kwargs)
+
+        session = run(run_func)
+        if blocking:
+            session.join()
+        return session
+
+    return wrapper
 
 
 def run(run_func: Callable[[Session], Iterator[Any]]) -> Session:
