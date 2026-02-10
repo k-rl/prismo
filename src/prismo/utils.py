@@ -9,13 +9,13 @@ P = ParamSpec("P")
 
 def run_async[**P](func: Callable[P, Iterator[Any]]) -> Callable[Concatenate[bool, P], Any]:
     def wrapper(blocking: bool = False, *args: P.args, **kwargs: P.kwargs) -> Any:
-        def run_func():
+        def run_func(_session):
             yield from func(*args, **kwargs)
 
-        runner = run(run_func)
+        session = run(run_func)
         if blocking:
-            runner.join()
-        return runner
+            session.join()
+        return session
 
     return wrapper
 

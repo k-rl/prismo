@@ -37,16 +37,33 @@ class Relay:
 class Session:
     def __init__(
         self,
-        init_client: Callable[[Viewer, Relay], Any],
+        init_view: Callable[[Viewer, Relay], Any] | None = None,
         file: str | None = None,
         tile: np.ndarray | None = None,
         attrs: dict[str, Any] | None = None,
     ):
-        def run_client(pipe: Connection):
+        self._running = threading.Event()
+        self._running.set()
+        self._quit = threading.Event()
+        self._workers: list[threading.Thread] = []
+        self._routes: dict[str, Callable[..., Any]] = {}
+        self._arrays: dict[str, xr.DataArray] = {}
+        self._array_lock = threading.Lock()
+        self._file = file
+        self._tile = tile
+        self._attrs = attrs if attrs is not None else {}
+        self._pipe = None
+        self._client_process = None
+        self._router = None
+
+        if init_view is None:
+            return
+
+        def run_view(pipe: Connection):
             viewer = napari.Viewer()
             relay = Relay(pipe)
             # Save the client in a variable so it doesn't get garbage collected.
-            _client = init_client(viewer, relay)
+            _client = init_view(viewer, relay)
             napari.run()
             pipe.close()
 
@@ -63,26 +80,17 @@ class Session:
                     self.quit()
                     raise e
 
-        self._running = threading.Event()
-        self._running.set()
-        self._quit = threading.Event()
         ctx = multiprocess.get_context("spawn")
         self._pipe, child_pipe = ctx.Pipe()
-        self._client_process = ctx.Process(target=run_client, args=(child_pipe,))
-        self._workers: list[threading.Thread] = []
+        self._client_process = ctx.Process(target=run_view, args=(child_pipe,))
         self._router = threading.Thread(target=run_router, args=(self._pipe, self._quit))
-        self._routes: dict[str, Callable[..., Any]] = {}
-        self._arrays: dict[str, xr.DataArray] = {}
-        self._array_lock = threading.Lock()
-        self._file = file
-        self._tile = tile
-        self._attrs = attrs if attrs is not None else {}
 
     def start(self):
-        self._client_process.start()
+        if self._client_process is not None:
+            self._client_process.start()
+            self._router.start()
         for worker in self._workers:
             worker.start()
-        self._router.start()
 
     def resume(self):
         self._running.set()
@@ -93,9 +101,14 @@ class Session:
     def quit(self):
         self._running.set()
         self._quit.set()
-        if self._client_process.is_alive():
+        if self._client_process is not None and self._client_process.is_alive():
             self._client_process.terminate()
-        self._pipe.close()
+        if self._pipe is not None:
+            self._pipe.close()
+
+    def join(self):
+        for worker in self._workers:
+            worker.join()
 
     def worker[T: Callable[..., Iterator[Any]]](self, func: T) -> T:
         def run_worker():
@@ -335,36 +348,15 @@ class AcquisitionView:
         self._viewer.layers[0].data = img
 
 
-def run(run_func: Callable[..., Iterator[Any]]) -> "Runner":
-    class Runner:
-        def __init__(self):
-            self._running = threading.Event()
-            self._running.set()
-            self._quit = threading.Event()
+def run(run_func: Callable[[Session], Iterator[Any]]) -> Session:
+    session = Session()
 
-            def run_worker():
-                for _ in run_func(self):
-                    self._running.wait()
-                    if self._quit.is_set():
-                        break
+    @session.worker
+    def worker():
+        yield from run_func(session)
 
-            self._worker = threading.Thread(target=run_worker)
-            self._worker.start()
-
-        def resume(self):
-            self._running.set()
-
-        def pause(self):
-            self._running.clear()
-
-        def quit(self):
-            self._running.set()
-            self._quit.set()
-
-        def join(self):
-            self._worker.join()
-
-    return Runner()
+    session.start()
+    return session
 
 
 def acq(ctrl: Control, file: str, acq_func: Callable[[Session], Iterator[Any]]) -> Session:
