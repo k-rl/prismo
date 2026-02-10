@@ -2,7 +2,7 @@ import time
 from collections.abc import Callable, Iterator
 from typing import Any, Concatenate, ParamSpec
 
-from .session import run
+from .run import run
 
 P = ParamSpec("P")
 

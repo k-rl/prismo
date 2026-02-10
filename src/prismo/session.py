@@ -3,7 +3,6 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 import dask.array as da
-import dill
 import multiprocess
 import napari
 import numpy as np
@@ -11,11 +10,7 @@ import xarray as xr
 import zarr as zr
 from multiprocess.connection import Connection
 from napari import Viewer
-from qtpy.QtCore import QTimer
 from zarr.errors import ContainsGroupError
-
-from .control import Control
-from .widgets import BoundarySelector, PositionSelector, init_widgets
 
 
 class Relay:
@@ -32,6 +27,13 @@ class Relay:
 
     def post(self, route: str, *args: Any, **kwargs: Any):
         self._pipe.send([self._path + route, args, kwargs])
+
+
+class _DiskArray(da.core.Array):
+    __slots__ = tuple()
+
+    def __setitem__(self, key, value):
+        self._zarr_array[key] = value
 
 
 class Session:
@@ -53,7 +55,7 @@ class Session:
         self._tile = tile
         self._attrs = attrs if attrs is not None else {}
         self._pipe = None
-        self._client_process = None
+        self._view_process = None
         self._router = None
 
         if init_view is None:
@@ -62,8 +64,8 @@ class Session:
         def run_view(pipe: Connection):
             viewer = napari.Viewer()
             relay = Relay(pipe)
-            # Save the client in a variable so it doesn't get garbage collected.
-            _client = init_view(viewer, relay)
+            # Save the view in a variable so it doesn't get garbage collected.
+            _view = init_view(viewer, relay)
             napari.run()
             pipe.close()
 
@@ -82,12 +84,12 @@ class Session:
 
         ctx = multiprocess.get_context("spawn")
         self._pipe, child_pipe = ctx.Pipe()
-        self._client_process = ctx.Process(target=run_view, args=(child_pipe,))
+        self._view_process = ctx.Process(target=run_view, args=(child_pipe,))
         self._router = threading.Thread(target=run_router, args=(self._pipe, self._quit))
 
     def start(self):
-        if self._client_process is not None:
-            self._client_process.start()
+        if self._view_process is not None:
+            self._view_process.start()
             self._router.start()
         for worker in self._workers:
             worker.start()
@@ -101,8 +103,8 @@ class Session:
     def quit(self):
         self._running.set()
         self._quit.set()
-        if self._client_process is not None and self._client_process.is_alive():
-            self._client_process.terminate()
+        if self._view_process is not None and self._view_process.is_alive():
+            self._view_process.terminate()
         if self._pipe is not None:
             self._pipe.close()
 
@@ -172,7 +174,7 @@ class Session:
         # __setitem__ is called.
         zarr_tiles = zr.open(store, path=f"{name}/tile", mode="a")
         tiles = da.from_zarr(zarr_tiles)
-        tiles.__class__ = DiskArray
+        tiles.__class__ = _DiskArray
         tiles._zarr_array = zarr_tiles
         xp.data = tiles
 
@@ -189,349 +191,3 @@ class Session:
 
     def __del__(self):
         self.quit()
-
-
-class LiveView:
-    def __init__(self, viewer: Viewer, relay: Relay, widgets: dict[str, Callable[[Relay], Any]]):
-        self._viewer = viewer
-        self._relay = relay
-        img = self._relay.get("img")
-        self._viewer.add_image(img, name="live")
-        self._timer = QTimer()
-        self._timer.timeout.connect(self.update_img)
-        self._timer.start(1000 // 30)
-        tabify = False
-        for name, widget in widgets.items():
-            self._viewer.window.add_dock_widget(
-                widget(self._relay), name=name, tabify=tabify, area="left"
-            )
-            tabify = True
-
-    def update_img(self):
-        img = self._relay.get("img")
-        self._viewer.layers[0].data = img
-
-
-def live(ctrl: Control) -> Session:
-    widgets, widget_routes = init_widgets(ctrl)
-    session = Session(lambda v, r: LiveView(v, r, widgets=widgets))
-
-    img = ctrl.snap()
-
-    @session.worker
-    def snap():
-        while True:
-            img[:] = ctrl.snap()
-            yield
-
-    session.route("img", lambda: img)
-    for name, func in widget_routes.items():
-        session.route(name, func)
-
-    session.start()
-
-    return session
-
-
-class AcquisitionView:
-    def __init__(
-        self,
-        viewer: Viewer,
-        relay: Relay,
-        file: str,
-        widgets: dict[str, Callable[[Relay], Any]],
-        tiled: bool = False,
-        multi: bool = False,
-    ):
-        self._viewer = viewer
-        self._relay = relay
-        self._file = file
-        self._live_timer = QTimer()
-        self._refresh_timer = QTimer()
-        self._arrays: set[str] = set()
-        self._imgs: dict[str, xr.DataArray] = {}
-        self._contrast_set: set[str] = set()
-
-        if tiled or multi:
-            img = self._relay.get("img")
-            self._viewer.add_image(img, name="live")
-            self._live_timer.timeout.connect(self.update_img)
-            self._live_timer.start(1000 // 30)
-            if tiled:
-                self._viewer.window.add_dock_widget(
-                    BoundarySelector(self._relay, self.start_acq),
-                    name="Acquisition Boundaries",
-                    tabify=False,
-                )
-            elif multi:
-                self._viewer.window.add_dock_widget(
-                    PositionSelector(self._relay, self.start_acq),
-                    name="Acquisition Positions",
-                    tabify=False,
-                )
-        else:
-            self._refresh_timer.timeout.connect(self.refresh)
-            self._refresh_timer.start(1000)
-
-        tabify = False
-        for name, widget in widgets.items():
-            self._viewer.window.add_dock_widget(
-                widget(self._relay), name=name, tabify=tabify, area="left"
-            )
-            tabify = True
-
-    def start_acq(self, *args: Any):
-        self._live_timer.disconnect()
-        self._live_timer.stop()
-        self._viewer.layers.remove("live")
-
-        self._relay.post("start_acq", *args)
-        self._refresh_timer.timeout.connect(self.refresh)
-        self._refresh_timer.start(1000)
-
-    def refresh(self):
-        arrays = self._relay.get("arrays")
-        new_arrays = arrays - self._arrays
-        self._arrays = arrays.union(self._arrays)
-        for arr in new_arrays:
-            xp = xr.open_zarr(self._file, group=arr)
-            xp = xp["tile"].assign_attrs(xp.attrs)
-            img = tiles_to_image(xp)
-
-            layer_names = arr
-            if "channel" in img.dims:
-                layer_names = [f"{arr}: {c}" for c in xp.coords["channel"].to_numpy()]
-
-            viewer_dims = self._viewer.dims.axis_labels[:-2] + ("y", "x")
-            img = img.expand_dims([d for d in viewer_dims if d not in img.dims])
-            img = img.transpose("channel", ..., *viewer_dims, missing_dims="ignore")
-
-            self._viewer.add_image(
-                img,
-                channel_axis=0 if "channel" in img.dims else None,
-                name=layer_names,
-                multiscale=False,
-                cache=False,
-            )
-            new_dims = tuple(d for d in img.dims if d not in viewer_dims and d != "channel")
-            self._viewer.dims.axis_labels = new_dims + viewer_dims
-            # Make sure new dimension sliders get initialized to be 0.
-            self._viewer.dims.current_step = (0,) * len(new_dims) + self._viewer.dims.current_step[
-                -len(new_dims) :
-            ]
-            # Save this array so we can set the contrast limits once a nonzero element gets added.
-            self._imgs[arr] = img
-
-        """
-        # Set contrast limits when a layer gets updated for the first time.
-        for arr, img in self._imgs.items():
-            if "channel" in img.dims:
-                for c in img.coords["channel"].to_numpy():
-                    layer_name = f"{arr}: {c}"
-                    subimg = img.sel(channel=c)
-                    if layer_name not in self._contrast_set and subimg.any():
-                        self._viewer.layers[layer_name].contrast_limits = (
-                                0, subimg.max().to_numpy())
-                        self._contrast_set.add(layer_name)
-            else:
-                if arr not in self._contrast_set and img.any():
-                    self._viewer.layers[arr].contrast_limits = (0, img.max().to_numpy())
-                    self._contrast_set.add(arr)
-        """
-
-        # Update each of the image layers.
-        for layer in self._viewer.layers:
-            layer.refresh()
-
-    def update_img(self):
-        img = self._relay.get("img")
-        self._viewer.layers[0].data = img
-
-
-def run(run_func: Callable[[Session], Iterator[Any]]) -> Session:
-    session = Session()
-
-    @session.worker
-    def worker():
-        yield from run_func(session)
-
-    session.start()
-    return session
-
-
-def acq(ctrl: Control, file: str, acq_func: Callable[[Session], Iterator[Any]]) -> Session:
-    widgets, widget_routes = init_widgets(ctrl)
-    session = Session(
-        lambda v, r: AcquisitionView(v, r, file=file, widgets=widgets),
-        file,
-        ctrl.snap(),
-        dict(acq_func=dill.source.getsource(acq_func)),
-    )
-
-    @session.worker
-    def acq():
-        store = zr.storage.LocalStore(file)
-        for _ in acq_func(session):
-            for name, xp in session.arrays.items():
-                xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
-                    store, group=name, compute=False, mode="a"
-                )
-            yield
-
-    session.route("arrays", lambda: set(session.arrays.keys()))
-    for name, func in widget_routes.items():
-        session.route(name, func)
-
-    session.start()
-    return session
-
-
-def multi_acq(
-    ctrl: Control,
-    file: str,
-    acq_func: Callable[[Session, list[tuple[float, float]]], Iterator[Any]],
-    overlap: float = 0.0,
-) -> Session:
-    tile = ctrl.snap()
-    pos: list[list[tuple[float, float]] | None] = [None]
-    acq_event = threading.Event()
-
-    widgets, widget_routes = init_widgets(ctrl)
-    session = Session(
-        lambda v, r: AcquisitionView(v, r, file=file, widgets=widgets, multi=True),
-        file,
-        ctrl.snap(),
-        dict(overlap=overlap, acq_func=dill.source.getsource(acq_func)),
-    )
-
-    @session.worker
-    def acq():
-        while not acq_event.is_set():
-            tile[:] = ctrl.snap()
-            yield
-
-        store = zr.storage.LocalStore(file)
-        for _ in acq_func(session, pos[0]):
-            for name, xp in session.arrays.items():
-                xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
-                    store, group=name, compute=False, mode="a"
-                )
-            yield
-
-    @session.route("start_acq")
-    def start_acq(xys):
-        pos[0] = xys
-        acq_event.set()
-
-    session.route("img", lambda: tile)
-    session.route("xy", lambda: ctrl.xy)
-    session.route("arrays", lambda: set(session.arrays.keys()))
-    for name, func in widget_routes.items():
-        session.route(name, func)
-
-    session.start()
-    return session
-
-
-def tiled_acq(
-    ctrl: Control,
-    file: str,
-    acq_func: Callable[[Session, np.ndarray, np.ndarray], Iterator[Any]],
-    overlap: float,
-    top_left: tuple[float, float] | None = None,
-    bot_right: tuple[float, float] | None = None,
-) -> Session:
-    tile = ctrl.snap()
-    pos: list[np.ndarray | None] = [None, None]
-    get_pos = top_left is None or bot_right is None
-    acq_event = threading.Event()
-
-    widgets, widget_routes = init_widgets(ctrl)
-    # TODO: Write additional attrs e.g. px_len.
-    session = Session(
-        lambda v, r: AcquisitionView(v, r, file=file, widgets=widgets, tiled=get_pos),
-        file,
-        ctrl.snap(),
-        dict(overlap=overlap, acq_func=dill.source.getsource(acq_func)),
-    )
-
-    @session.worker
-    def acq():
-        if get_pos:
-            while not acq_event.is_set():
-                tile[:] = ctrl.snap()
-                yield
-            xs, ys = pos
-        else:
-            xs, ys = tile_coords(ctrl, top_left, bot_right, overlap)
-
-        store = zr.storage.LocalStore(file)
-        for _ in acq_func(session, xs, ys):
-            for name, xp in session.arrays.items():
-                xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
-                    store, group=name, compute=False, mode="a"
-                )
-            yield
-
-    @session.route("start_acq")
-    def start_acq(top_left, bot_right):
-        xs, ys = tile_coords(ctrl, top_left, bot_right, overlap)
-        pos[0] = xs
-        pos[1] = ys
-        acq_event.set()
-
-    session.route("img", lambda: tile)
-    session.route("xy", lambda: ctrl.xy)
-    session.route("arrays", lambda: set(session.arrays.keys()))
-    for name, func in widget_routes.items():
-        session.route(name, func)
-
-    session.start()
-    return session
-
-
-class DiskArray(da.core.Array):
-    __slots__ = tuple()
-
-    def __setitem__(self, key, value):
-        self._zarr_array[key] = value
-
-
-def tile_coords(
-    ctrl: Control,
-    top_left: tuple[float, float],
-    bot_right: tuple[float, float],
-    overlap: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    tile = ctrl.snap()
-    width = tile.shape[1]
-    height = tile.shape[0]
-    overlap_x = int(round(overlap * width))
-    overlap_y = int(round(overlap * height))
-    delta_x = (width - overlap_x) * ctrl.px_len
-    delta_y = (height - overlap_y) * ctrl.px_len
-    xs = np.arange(top_left[0], bot_right[0] + delta_x - 1, delta_x)
-    ys = np.arange(top_left[1], bot_right[1] + delta_y - 1, delta_y)
-    return xs, ys
-
-
-def tiles_to_image(xp: xr.DataArray) -> xr.DataArray:
-    if "overlap" not in xp.attrs:
-        return xp.transpose(..., "y", "x")
-
-    if xp.attrs["overlap"] != 0:
-        overlap_y = int(round(xp.attrs["overlap"] * xp.shape[-2]))
-        overlap_x = int(round(xp.attrs["overlap"] * xp.shape[-1]))
-        img = xp[..., :-overlap_y, :-overlap_x]
-    else:
-        img = xp
-
-    if "row" in img.dims:
-        img = img.transpose("row", "y", ...)
-        img = xr.concat(img, dim="y")
-    if "col" in img.dims:
-        img = img.transpose("col", "x", ...)
-        img = xr.concat(img, dim="x")
-
-    img = img.transpose(..., "y", "x")
-    return img
