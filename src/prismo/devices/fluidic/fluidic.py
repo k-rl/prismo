@@ -25,16 +25,6 @@ class Code(IntEnum):
     SET_POWERDOWN_DELAY_S = 0x0E
     GET_MICROSTEPS = 0x0F
     SET_MICROSTEPS = 0x10
-    GET_FILTER_STEP_PULSES = 0x11
-    SET_FILTER_STEP_PULSES = 0x12
-    GET_DOUBLE_EDGE_STEP = 0x13
-    SET_DOUBLE_EDGE_STEP = 0x14
-    GET_INTERPOLATE_MICROSTEPS = 0x15
-    SET_INTERPOLATE_MICROSTEPS = 0x16
-    GET_SHORT_SUPPLY_PROTECT = 0x17
-    SET_SHORT_SUPPLY_PROTECT = 0x18
-    GET_SHORT_GROUND_PROTECT = 0x19
-    SET_SHORT_GROUND_PROTECT = 0x1A
     GET_BLANK_TIME = 0x1B
     SET_BLANK_TIME = 0x1C
     GET_HYSTERESIS_END = 0x1D
@@ -60,28 +50,12 @@ class Code(IntEnum):
     GET_PWM_OFFSET = 0x31
     SET_PWM_OFFSET = 0x32
     GET_CHARGE_PUMP_UNDERVOLTAGE = 0x33
-    GET_DRIVER_ERROR = 0x34
-    GET_IS_RESET = 0x35
-    GET_DIRECTION_PIN = 0x36
-    GET_DISABLE_PWM_PIN = 0x37
-    GET_STEP_PIN = 0x38
-    GET_POWERDOWN_UART_PIN = 0x39
-    GET_DIAGNOSTIC_PIN = 0x3A
-    GET_MICROSTEP2_PIN = 0x3B
-    GET_MICROSTEP1_PIN = 0x3C
-    GET_DISABLE_PIN = 0x3D
     GET_MICROSTEP_TIME = 0x3E
     GET_MOTOR_LOAD = 0x3F
-    GET_MICROSTEP_POSITION = 0x40
     GET_MICROSTEP_CURRENT = 0x41
-    GET_STOPPED = 0x42
     GET_PWM_MODE = 0x43
     GET_CURRENT_SCALE = 0x44
     GET_TEMPERATURE = 0x45
-    GET_OPEN_LOAD = 0x46
-    GET_LOW_SIDE_SHORT = 0x47
-    GET_GROUND_SHORT = 0x48
-    GET_OVERTEMPERATURE = 0x49
     GET_FLOW_HISTORY = 0x4A
     FAIL = 0xFF
 
@@ -89,9 +63,7 @@ class Code(IntEnum):
 StopMode = Literal["normal", "freewheel", "low_side", "high_side"]
 BlankTime = Literal[16, 24, 36, 54]
 PwmFrequency = Literal[1024, 683, 512, 410]
-PhaseStatus = Literal["none", "phase_a", "phase_b", "both_phases"]
 TemperatureThreshold = Literal["normal", "120c", "143c", "150c", "157c"]
-OvertemperatureStatus = Literal["normal", "warning", "shutdown"]
 
 
 @dataclass
@@ -236,66 +208,6 @@ class FlowController:
         request = struct.pack(">BH", Code.SET_MICROSTEPS, microsteps)
         self._socket.write(request)
         self._read_packet(Code.SET_MICROSTEPS)
-
-    @property
-    def filter_step_pulses(self) -> bool:
-        request = struct.pack(">B", Code.GET_FILTER_STEP_PULSES)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_FILTER_STEP_PULSES, "?")
-
-    @filter_step_pulses.setter
-    def filter_step_pulses(self, enable: bool):
-        request = struct.pack(">B?", Code.SET_FILTER_STEP_PULSES, enable)
-        self._socket.write(request)
-        self._read_packet(Code.SET_FILTER_STEP_PULSES)
-
-    @property
-    def double_edge_step(self) -> bool:
-        request = struct.pack(">B", Code.GET_DOUBLE_EDGE_STEP)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_DOUBLE_EDGE_STEP, "?")
-
-    @double_edge_step.setter
-    def double_edge_step(self, enable: bool):
-        request = struct.pack(">B?", Code.SET_DOUBLE_EDGE_STEP, enable)
-        self._socket.write(request)
-        self._read_packet(Code.SET_DOUBLE_EDGE_STEP)
-
-    @property
-    def interpolate_microsteps(self) -> bool:
-        request = struct.pack(">B", Code.GET_INTERPOLATE_MICROSTEPS)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_INTERPOLATE_MICROSTEPS, "?")
-
-    @interpolate_microsteps.setter
-    def interpolate_microsteps(self, enable: bool):
-        request = struct.pack(">B?", Code.SET_INTERPOLATE_MICROSTEPS, enable)
-        self._socket.write(request)
-        self._read_packet(Code.SET_INTERPOLATE_MICROSTEPS)
-
-    @property
-    def short_supply_protect(self) -> bool:
-        request = struct.pack(">B", Code.GET_SHORT_SUPPLY_PROTECT)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_SHORT_SUPPLY_PROTECT, "?")
-
-    @short_supply_protect.setter
-    def short_supply_protect(self, enable: bool):
-        request = struct.pack(">B?", Code.SET_SHORT_SUPPLY_PROTECT, enable)
-        self._socket.write(request)
-        self._read_packet(Code.SET_SHORT_SUPPLY_PROTECT)
-
-    @property
-    def short_ground_protect(self) -> bool:
-        request = struct.pack(">B", Code.GET_SHORT_GROUND_PROTECT)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_SHORT_GROUND_PROTECT, "?")
-
-    @short_ground_protect.setter
-    def short_ground_protect(self, enable: bool):
-        request = struct.pack(">B?", Code.SET_SHORT_GROUND_PROTECT, enable)
-        self._socket.write(request)
-        self._read_packet(Code.SET_SHORT_GROUND_PROTECT)
 
     @property
     def blank_time(self) -> BlankTime:
@@ -452,66 +364,6 @@ class FlowController:
         return self._read_packet(Code.GET_CHARGE_PUMP_UNDERVOLTAGE, "?")
 
     @property
-    def driver_error(self) -> bool:
-        request = struct.pack(">B", Code.GET_DRIVER_ERROR)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_DRIVER_ERROR, "?")
-
-    @property
-    def is_reset(self) -> bool:
-        request = struct.pack(">B", Code.GET_IS_RESET)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_IS_RESET, "?")
-
-    @property
-    def direction_pin(self) -> bool:
-        request = struct.pack(">B", Code.GET_DIRECTION_PIN)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_DIRECTION_PIN, "?")
-
-    @property
-    def disable_pwm_pin(self) -> bool:
-        request = struct.pack(">B", Code.GET_DISABLE_PWM_PIN)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_DISABLE_PWM_PIN, "?")
-
-    @property
-    def step_pin(self) -> bool:
-        request = struct.pack(">B", Code.GET_STEP_PIN)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_STEP_PIN, "?")
-
-    @property
-    def powerdown_uart_pin(self) -> bool:
-        request = struct.pack(">B", Code.GET_POWERDOWN_UART_PIN)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_POWERDOWN_UART_PIN, "?")
-
-    @property
-    def diagnostic_pin(self) -> bool:
-        request = struct.pack(">B", Code.GET_DIAGNOSTIC_PIN)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_DIAGNOSTIC_PIN, "?")
-
-    @property
-    def microstep2_pin(self) -> bool:
-        request = struct.pack(">B", Code.GET_MICROSTEP2_PIN)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_MICROSTEP2_PIN, "?")
-
-    @property
-    def microstep1_pin(self) -> bool:
-        request = struct.pack(">B", Code.GET_MICROSTEP1_PIN)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_MICROSTEP1_PIN, "?")
-
-    @property
-    def disable_pin(self) -> bool:
-        request = struct.pack(">B", Code.GET_DISABLE_PIN)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_DISABLE_PIN, "?")
-
-    @property
     def microstep_time(self) -> int:
         request = struct.pack(">B", Code.GET_MICROSTEP_TIME)
         self._socket.write(request)
@@ -524,22 +376,10 @@ class FlowController:
         return self._read_packet(Code.GET_MOTOR_LOAD, "H")
 
     @property
-    def microstep_position(self) -> int:
-        request = struct.pack(">B", Code.GET_MICROSTEP_POSITION)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_MICROSTEP_POSITION, "H")
-
-    @property
     def microstep_current(self) -> tuple[int, int]:
         request = struct.pack(">B", Code.GET_MICROSTEP_CURRENT)
         self._socket.write(request)
         return self._read_packet(Code.GET_MICROSTEP_CURRENT, "hh")
-
-    @property
-    def stopped(self) -> bool:
-        request = struct.pack(">B", Code.GET_STOPPED)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_STOPPED, "?")
 
     @property
     def pwm_mode(self) -> bool:
@@ -558,32 +398,6 @@ class FlowController:
         request = struct.pack(">B", Code.GET_TEMPERATURE)
         self._socket.write(request)
         return typing.get_args(TemperatureThreshold)[self._read_packet(Code.GET_TEMPERATURE, "B")]
-
-    @property
-    def open_load(self) -> PhaseStatus:
-        request = struct.pack(">B", Code.GET_OPEN_LOAD)
-        self._socket.write(request)
-        return typing.get_args(PhaseStatus)[self._read_packet(Code.GET_OPEN_LOAD, "B")]
-
-    @property
-    def low_side_short(self) -> PhaseStatus:
-        request = struct.pack(">B", Code.GET_LOW_SIDE_SHORT)
-        self._socket.write(request)
-        return typing.get_args(PhaseStatus)[self._read_packet(Code.GET_LOW_SIDE_SHORT, "B")]
-
-    @property
-    def ground_short(self) -> PhaseStatus:
-        request = struct.pack(">B", Code.GET_GROUND_SHORT)
-        self._socket.write(request)
-        return typing.get_args(PhaseStatus)[self._read_packet(Code.GET_GROUND_SHORT, "B")]
-
-    @property
-    def overtemperature(self) -> OvertemperatureStatus:
-        request = struct.pack(">B", Code.GET_OVERTEMPERATURE)
-        self._socket.write(request)
-        return typing.get_args(OvertemperatureStatus)[
-            self._read_packet(Code.GET_OVERTEMPERATURE, "B")
-        ]
 
     def flow_history(self) -> list[float]:
         request = struct.pack(">B", Code.GET_FLOW_HISTORY)
