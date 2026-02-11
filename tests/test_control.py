@@ -2,10 +2,19 @@ from unittest.mock import Mock
 
 import numpy as np
 import pytest
+from pymmcore import CMMCore
 
 from prismo.control import Control
 from prismo.devices import protocols
 from prismo.devices.manual import Objective
+
+
+@pytest.fixture
+def mock_core():
+    core = Mock(spec=CMMCore)
+    core.getLoadedDevices.return_value = []
+    core.getNumberOfStates.return_value = 4
+    return core
 
 
 def test_init_with_devices(mock_core):
