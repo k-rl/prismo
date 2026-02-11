@@ -109,6 +109,7 @@ def multi_acq(
             yield
 
         store = zr.storage.LocalStore(file)
+        assert pos[0] is not None
         for _ in acq_func(session, pos[0]):
             for name, xp in session.arrays.items():
                 xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
@@ -141,13 +142,14 @@ def tiled_acq(
 ) -> Session:
     tile = ctrl.snap()
     pos: list[np.ndarray | None] = [None, None]
-    get_pos = top_left is None or bot_right is None
     acq_event = threading.Event()
 
     widgets, widget_routes = init_widgets(ctrl)
     # TODO: Write additional attrs e.g. px_len.
     session = Session(
-        lambda v, r: AcquisitionView(v, r, file=file, widgets=widgets, tiled=get_pos),
+        lambda v, r: AcquisitionView(
+            v, r, file=file, widgets=widgets, tiled=top_left is None or bot_right is None
+        ),
         file,
         ctrl.snap(),
         dict(overlap=overlap, acq_func=dill.source.getsource(acq_func)),
@@ -155,11 +157,12 @@ def tiled_acq(
 
     @session.worker
     def acq():
-        if get_pos:
+        if top_left is None or bot_right is None:
             while not acq_event.is_set():
                 tile[:] = ctrl.snap()
                 yield
             xs, ys = pos
+            assert xs is not None and ys is not None
         else:
             xs, ys = tile_coords(ctrl, top_left, bot_right, overlap)
 
