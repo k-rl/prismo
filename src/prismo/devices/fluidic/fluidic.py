@@ -90,6 +90,8 @@ class Code(IntEnum):
     GET_GROUND_SHORT = 0x48
     GET_OVERTEMPERATURE = 0x49
     GET_FLOW_HISTORY = 0x4A
+    GET_VALVE = 0x4B
+    SET_VALVE = 0x4C
     FAIL = 0xFF
 
 
@@ -595,7 +597,25 @@ class FlowController:
     def flow_history(self) -> list[float]:
         request = struct.pack(">B", Code.GET_FLOW_HISTORY)
         self._socket.write(request)
-        return list(self._read_packet(Code.GET_FLOW_HISTORY, "1000d"))
+        response = self._socket.read()
+        code, length = struct.unpack(">BH", response[:3])
+        if code == Code.FAIL:
+            raise RuntimeError("Device reported failure.")
+        elif code != Code.GET_FLOW_HISTORY:
+            raise RuntimeError(f"Expected {Code.GET_FLOW_HISTORY} got {code=}.")
+        return list(struct.unpack(f">{length}d", response[3:]))
+
+    @property
+    def valve(self) -> bool:
+        request = struct.pack(">B", Code.GET_VALVE)
+        self._socket.write(request)
+        return self._read_packet(Code.GET_VALVE, "?")
+
+    @valve.setter
+    def valve(self, open: bool):
+        request = struct.pack(">B?", Code.SET_VALVE, open)
+        self._socket.write(request)
+        self._read_packet(Code.SET_VALVE)
 
     def _read_packet(self, assert_code: Code, response_format: str = "") -> Any:
         response = self._socket.read()
