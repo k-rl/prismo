@@ -1,5 +1,12 @@
+from typing import Literal
+
+from pymmcore import CMMCore
+
+
 class Light:
-    def __init__(self, name, core, port, version="sola"):
+    def __init__(
+        self, name: str, core: CMMCore, port: str, version: Literal["sola", "spectra"] = "sola"
+    ):
         self.name = name
         self._core = core
         core.loadDevice(name, "LumencorSpectra", "Spectra")
@@ -11,9 +18,9 @@ class Light:
         self._core.waitForDevice(self.name)
 
     @property
-    def state(self):
+    def state(self) -> int:
         return int(self._core.getProperty(self.name, "White_Level"))
 
     @state.setter
-    def state(self, new_state):
+    def state(self, new_state: int):
         self._core.setProperty(self.name, "White_Level", new_state)

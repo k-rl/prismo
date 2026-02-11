@@ -34,7 +34,7 @@ class Valved(Protocol):
 
 @runtime_checkable
 class Wait(Protocol):
-    def wait() -> None: ...
+    def wait(self): ...
 
 
 @runtime_checkable

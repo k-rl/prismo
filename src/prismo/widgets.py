@@ -1,4 +1,6 @@
 import functools
+from collections.abc import Callable
+from typing import Any
 
 from qtpy.QtCore import Qt, QTimer
 from qtpy.QtGui import QDoubleValidator
@@ -13,11 +15,15 @@ from qtpy.QtWidgets import (
 )
 
 from . import devices
+from .control import Control
+from .session import Relay
 
 
-def init_widgets(ctrl):
-    widgets = {}
-    routes = {}
+def init_widgets(
+    ctrl: "Control",
+) -> tuple[dict[str, Callable[["Relay"], "ValveController"]], dict[str, Callable[..., Any]]]:
+    widgets: dict[str, Callable[[Relay], ValveController]] = {}
+    routes: dict[str, Callable[..., Any]] = {}
 
     for device in ctrl.devices:
         if isinstance(device, devices.Valved):
@@ -33,7 +39,11 @@ def init_widgets(ctrl):
 
 
 class BoundarySelector(QWidget):
-    def __init__(self, relay, next_step):
+    def __init__(
+        self,
+        relay: "Relay",
+        next_step: Callable[[tuple[float, float], tuple[float, float]], Any],
+    ):
         super().__init__()
         self.setMaximumHeight(150)
         layout = QGridLayout(self)
@@ -109,7 +119,7 @@ class BoundarySelector(QWidget):
 
 
 class PositionSelector(QWidget):
-    def __init__(self, relay, next_step):
+    def __init__(self, relay: "Relay", next_step: Callable[[list[tuple[float, float]]], Any]):
         super().__init__()
         layout = QVBoxLayout(self)
         self.setMaximumHeight(150)
@@ -150,14 +160,14 @@ class PositionSelector(QWidget):
         delete_btn.clicked.connect(lambda: self.delete(row))
         set_btn.clicked.connect(lambda: self.set(row))
 
-    def set(self, row):
+    def set(self, row: QHBoxLayout):
         x = row.itemAt(0).widget()
         y = row.itemAt(1).widget()
         xy = self._relay.get("xy")
         x.setText(f"{xy[0]:.2f}")
         y.setText(f"{xy[1]:.2f}")
 
-    def delete(self, row):
+    def delete(self, row: QHBoxLayout):
         self.rows.removeItem(row)
 
     def next_step(self):
@@ -184,11 +194,11 @@ class PositionSelector(QWidget):
 
 
 class ValveController(QWidget):
-    def __init__(self, relay):
+    def __init__(self, relay: "Relay"):
         super().__init__()
         self._relay = relay
-        self._valves = self._relay.get("valves")
-        self._valve_btns = {}
+        self._valves: dict[int, bool] = self._relay.get("valves")
+        self._valve_btns: dict[int, QPushButton] = {}
         self.setMaximumHeight(150)
         layout = QGridLayout(self)
         layout.setHorizontalSpacing(0)
@@ -210,13 +220,13 @@ class ValveController(QWidget):
         for k, v in self._valves.items():
             self._valve_btns[k].setStyleSheet(self.button_stylesheet(v))
 
-    def toggle_valve(self, key):
+    def toggle_valve(self, key: int):
         v = not self._valves[key]
         self._valves[key] = v
         self._relay.post("set_valve", key, v)
         self._valve_btns[key].setStyleSheet(self.button_stylesheet(v))
 
-    def button_stylesheet(self, is_green):
+    def button_stylesheet(self, is_green: bool) -> str:
         return (
             f"background-color: {'green' if is_green else 'red'};"
             + "margin: 0.5px;"
@@ -225,14 +235,14 @@ class ValveController(QWidget):
 
 
 class ValveControllerServer:
-    def __init__(self, valves):
+    def __init__(self, valves: devices.Valved):
         self._valves = valves
 
-    def routes(self, path):
+    def routes(self, path: str) -> dict[str, Callable[..., Any]]:
         return {path + "/valves": self.get_valves, path + "/set_valve": self.set_valve}
 
-    def get_valves(self):
+    def get_valves(self) -> dict[int, bool]:
         return {k: v == "closed" for k, v in self._valves.valves.items()}
 
-    def set_valve(self, idx, value):
+    def set_valve(self, idx: int, value: bool):
         self._valves[idx] = "closed" if value else "open"

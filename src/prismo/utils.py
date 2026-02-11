@@ -1,22 +1,8 @@
 import time
-
-from .gui import run
-
-
-def run_async(func):
-    def wrapper(blocking=False, *args, **kwargs):
-        def run_func():
-            yield from func(*args, **kwargs)
-
-        runner = run(run_func)
-        if blocking:
-            runner.join()
-        return runner
-
-    return wrapper
+from collections.abc import Iterator
 
 
-def sleep(seconds: float):
+def sleep(seconds: float) -> Iterator[None]:
     """Interruptable sleep."""
     start = time.time()
     while time.time() - start < seconds:

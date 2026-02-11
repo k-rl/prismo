@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterator
 
 from .devices.microfluidic import Chip
 from .utils import run_async, sleep
@@ -25,7 +26,7 @@ def deadend_fill(chip: Chip, buffer: str):
 @run_async
 def purge_common_inlet(
     chip: Chip, flow: str, waste: str, wait_time: int = 5, keep_flow_open: bool = True
-):
+) -> Iterator[None]:
     """Purge air from a common inlet for a set amount of time.
 
     Expects that flow and waste inlet valves are in the common valve
@@ -74,7 +75,9 @@ def purge_common_inlet(
 
 
 @run_async
-def purge_block_inlets(chip: Chip, wait_time: int = 5, keep_block0_open: bool = False):
+def purge_block_inlets(
+    chip: Chip, wait_time: int = 5, keep_block0_open: bool = False
+) -> Iterator[None]:
     """Purges all four block-specific inlets for a set amount of time.
 
     Expects that block inlets contain low-pressure lines to flow to the
@@ -113,7 +116,7 @@ def pattern_anti_gfp(
     anti_gfp: str = "in4",
     pbs: str = "in5",
     outlet: int = -1,
-):
+) -> Iterator[None]:
     """Pattern a chip device to add a bbsa-na-anti_gfp pedestal under the button.
 
     Parameters:
@@ -248,7 +251,7 @@ def sds_wash(
     outlet: int = -1,
     wash_lagoons: bool = True,
     keep_neck_open: bool = False,
-):
+) -> Iterator[None]:
     """Wash the chip with SDS one time. To be used within a loop to repeat
     washes multiple times and acquire images after each wash.
 

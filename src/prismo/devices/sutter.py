@@ -1,7 +1,14 @@
+from typing import Literal
+
+from pymmcore import CMMCore
+
+
 class Filter:
-    def __init__(self, name, core, filter, port, states=None):
+    def __init__(
+        self, name: str, core: CMMCore, filter: str, port: str, states: list[str] | None = None
+    ):
         self.name = name
-        self.states = states
+        self.states: list[int] | list[str]
         self._core = core
         core.loadDevice(name, "SutterLambda", "Wheel-" + filter)
         core.setProperty(name, "Port", port)
@@ -11,6 +18,7 @@ class Filter:
         if states is None:
             self.states = [i for i in range(n_states)]
         else:
+            self.states = states
             if len(self.states) < n_states:
                 raise ValueError(
                     f"{name} requires {n_states} states (not {len(self.states)}) to be specified."
@@ -22,14 +30,14 @@ class Filter:
         self._core.waitForDevice(self.name)
 
     @property
-    def state(self):
+    def state(self) -> int | str:
         if isinstance(self.states[0], int):
             return self._core.getState(self.name)
         else:
             return self._core.getStateLabel(self.name)
 
     @state.setter
-    def state(self, new_state):
+    def state(self, new_state: int | str):
         if isinstance(new_state, int):
             self._core.setState(self.name, new_state)
         else:
@@ -37,7 +45,7 @@ class Filter:
 
 
 class Shutter:
-    def __init__(self, name, core, shutter, port):
+    def __init__(self, name: str, core: CMMCore, shutter: str, port: str):
         self.name = name
         self._core = core
         core.loadDevice(name, "SutterLambda", "Shutter-" + shutter)
@@ -48,17 +56,17 @@ class Shutter:
         self._core.waitForDevice(self.name)
 
     @property
-    def open(self):
+    def open(self) -> bool:
         return self._core.getShutterOpen(self.name)
 
     @open.setter
-    def open(self, new_state):
+    def open(self, new_state: bool):
         self._core.setShutterOpen(self.name, new_state)
 
     @property
-    def state(self):
+    def state(self) -> Literal["open", "closed"]:
         return "open" if self.open else "closed"
 
     @state.setter
-    def state(self, new_state):
+    def state(self, new_state: Literal["open", "closed"]):
         self.open = new_state == "open"
