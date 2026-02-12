@@ -1,4 +1,5 @@
 import threading
+import warnings
 from collections.abc import Callable, Iterator
 from typing import Any
 
@@ -9,7 +10,9 @@ import numpy as np
 import xarray as xr
 import zarr as zr
 from multiprocess.connection import Connection
-from napari import Viewer
+
+warnings.filterwarnings("ignore", message=".*itertools.*", category=DeprecationWarning)
+from napari import Viewer  # noqa: E402
 from zarr.errors import ContainsGroupError
 
 
@@ -152,7 +155,10 @@ class Session:
 
         for dim_name, coords in dims.items():
             if not isinstance(coords, int):
-                xp.coords[dim_name] = coords
+                arr = np.asarray(coords)
+                if arr.dtype.kind == "U":
+                    arr = arr.astype(object)
+                xp.coords[dim_name] = arr
 
         store = zr.storage.LocalStore(self._file)
         compressor = zr.codecs.BloscCodec(
@@ -163,9 +169,14 @@ class Session:
             xp.attrs[attr_name] = attr
 
         try:
-            xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
-                store, group=name, compute=False, encoding={"tile": {"compressors": compressor}}
-            )
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="Consolidated metadata")
+                xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
+                    store,
+                    group=name,
+                    compute=False,
+                    encoding={"tile": {"compressors": compressor}},
+                )
         except ContainsGroupError as e:
             raise FileExistsError(f"{self._file}/{name} already exists.") from e
 

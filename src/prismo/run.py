@@ -1,4 +1,5 @@
 import threading
+import warnings
 from collections.abc import Callable, Iterator
 from typing import Any, Concatenate
 
@@ -70,10 +71,12 @@ def acq(ctrl: Control, file: str, acq_func: Callable[[Session], Iterator[Any]]) 
     def acq():
         store = zr.storage.LocalStore(file)
         for _ in acq_func(session):
-            for name, xp in session.arrays.items():
-                xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
-                    store, group=name, compute=False, mode="a"
-                )
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="Consolidated metadata")
+                for name, xp in session.arrays.items():
+                    xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
+                        store, group=name, compute=False, mode="a"
+                    )
             yield
 
     session.route("arrays", lambda: set(session.arrays.keys()))
@@ -111,10 +114,12 @@ def multi_acq(
         store = zr.storage.LocalStore(file)
         assert pos[0] is not None
         for _ in acq_func(session, pos[0]):
-            for name, xp in session.arrays.items():
-                xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
-                    store, group=name, compute=False, mode="a"
-                )
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="Consolidated metadata")
+                for name, xp in session.arrays.items():
+                    xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
+                        store, group=name, compute=False, mode="a"
+                    )
             yield
 
     @session.route("start_acq")
@@ -168,10 +173,12 @@ def tiled_acq(
 
         store = zr.storage.LocalStore(file)
         for _ in acq_func(session, xs, ys):
-            for name, xp in session.arrays.items():
-                xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
-                    store, group=name, compute=False, mode="a"
-                )
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="Consolidated metadata")
+                for name, xp in session.arrays.items():
+                    xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
+                        store, group=name, compute=False, mode="a"
+                    )
             yield
 
     @session.route("start_acq")
