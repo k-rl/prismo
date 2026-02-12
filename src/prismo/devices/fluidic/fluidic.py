@@ -422,7 +422,9 @@ class FlowController:
     def _read_cnc(self, assert_code: int, response_format: str = "") -> Any:
         return self._read(self._cnc, assert_code, response_format)
 
-    def _read(self, socket: packet.PacketStream, assert_code: int, response_format: str = "") -> Any:
+    def _read(
+        self, socket: packet.PacketStream, assert_code: int, response_format: str = ""
+    ) -> Any:
         response = socket.read()
         code = struct.unpack(">B", response[:1])[0]
         if code == 0xFF:

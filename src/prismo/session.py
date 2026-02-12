@@ -10,10 +10,10 @@ import numpy as np
 import xarray as xr
 import zarr as zr
 from multiprocess.connection import Connection
+from zarr.errors import ContainsGroupError
 
 warnings.filterwarnings("ignore", message=".*itertools.*", category=DeprecationWarning)
 from napari import Viewer  # noqa: E402
-from zarr.errors import ContainsGroupError
 
 
 class Relay:
