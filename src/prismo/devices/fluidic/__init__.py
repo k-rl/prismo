@@ -1,3 +1,3 @@
-from .fluidic import FlowController
+from .fluidic import Sipper
 
-__all__ = ["FlowController"]
+__all__ = ["Sipper"]

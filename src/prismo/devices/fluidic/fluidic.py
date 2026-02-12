@@ -61,6 +61,8 @@ class PumpCode(IntEnum):
     GET_CURRENT_SCALE = 0x44
     GET_TEMPERATURE = 0x45
     GET_FLOW_HISTORY = 0x4A
+    GET_VALVE = 0x4B
+    SET_VALVE = 0x4C
     GET_AIR_STOP = 0x4D
     SET_AIR_STOP = 0x4E
     FAIL = 0xFF
@@ -89,11 +91,11 @@ class PwmState:
     offset: int
 
 
-class FlowController:
+class Sipper:
     def __init__(self, name: str):
         self.name = name
         self._pump = packet.PacketStream(device_id=0)
-        self._cnc = packet.PacketStream(device_id=1)
+        # self._cnc = packet.PacketStream(device_id=1)
         self._ul_per_min = float("nan")
 
     @property
@@ -386,6 +388,18 @@ class FlowController:
         request = struct.pack(">B", PumpCode.GET_FLOW_HISTORY)
         self._pump.write(request)
         return list(self._read_pump(PumpCode.GET_FLOW_HISTORY, "1000d"))
+
+    @property
+    def valve(self) -> bool:
+        request = struct.pack(">B", PumpCode.GET_VALVE)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_VALVE, "?")
+
+    @valve.setter
+    def valve(self, open: bool):
+        request = struct.pack(">B?", PumpCode.SET_VALVE, open)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_VALVE)
 
     @property
     def air_stop(self) -> bool:
