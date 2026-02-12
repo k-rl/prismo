@@ -7,7 +7,15 @@ from typing import Any, Literal
 from . import packet
 
 
-class Code(IntEnum):
+class CncCode(IntEnum):
+    INIT = 0x00
+    HOME = 0x01
+    SET_POS = 0x02
+    GET_POS = 0x03
+    FAIL = 0xFF
+
+
+class PumpCode(IntEnum):
     INIT = 0x00
     FLOW_SENSOR_INFO = 0x01
     SET_FLOW_UL_PER_MIN = 0x02
@@ -19,10 +27,6 @@ class Code(IntEnum):
     SET_STOP_RMS_AMPS = 0x08
     GET_STOP_MODE = 0x09
     SET_STOP_MODE = 0x0A
-    GET_POWERDOWN_DURATION_S = 0x0B
-    SET_POWERDOWN_DURATION_S = 0x0C
-    GET_POWERDOWN_DELAY_S = 0x0D
-    SET_POWERDOWN_DELAY_S = 0x0E
     GET_MICROSTEPS = 0x0F
     SET_MICROSTEPS = 0x10
     GET_BLANK_TIME = 0x1B
@@ -57,6 +61,8 @@ class Code(IntEnum):
     GET_CURRENT_SCALE = 0x44
     GET_TEMPERATURE = 0x45
     GET_FLOW_HISTORY = 0x4A
+    GET_AIR_STOP = 0x4D
+    SET_AIR_STOP = 0x4E
     FAIL = 0xFF
 
 
@@ -86,7 +92,8 @@ class PwmState:
 class FlowController:
     def __init__(self, name: str):
         self.name = name
-        self._socket = packet.PacketStream()
+        self._pump = packet.PacketStream(device_id=0)
+        self._cnc = packet.PacketStream(device_id=1)
         self._ul_per_min = float("nan")
 
     @property
@@ -111,15 +118,15 @@ class FlowController:
 
     @property
     def rpm(self) -> float:
-        request = struct.pack(">B", Code.GET_PUMP_RPM)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_PUMP_RPM, "d")
+        request = struct.pack(">B", PumpCode.GET_PUMP_RPM)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_PUMP_RPM, "d")
 
     @rpm.setter
     def rpm(self, rpm: float):
-        request = struct.pack(">Bd", Code.SET_PUMP_RPM, rpm)
-        self._socket.write(request)
-        self._read_packet(Code.SET_PUMP_RPM)
+        request = struct.pack(">Bd", PumpCode.SET_PUMP_RPM, rpm)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_PUMP_RPM)
 
     @property
     def ul_per_min(self) -> float:
@@ -127,287 +134,298 @@ class FlowController:
 
     @ul_per_min.setter
     def ul_per_min(self, ul_per_min: float):
-        request = struct.pack(">Bd", Code.SET_FLOW_UL_PER_MIN, ul_per_min)
-        self._socket.write(request)
-        self._read_packet(Code.SET_FLOW_UL_PER_MIN)
+        request = struct.pack(">Bd", PumpCode.SET_FLOW_UL_PER_MIN, ul_per_min)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_FLOW_UL_PER_MIN)
         self._ul_per_min = float(ul_per_min)
 
     def sensor_info(self) -> SensorInfo:
-        request = struct.pack(">B", Code.FLOW_SENSOR_INFO)
-        self._socket.write(request)
-        return SensorInfo(*self._read_packet(Code.FLOW_SENSOR_INFO, "???dd"))
+        request = struct.pack(">B", PumpCode.FLOW_SENSOR_INFO)
+        self._pump.write(request)
+        return SensorInfo(*self._read_pump(PumpCode.FLOW_SENSOR_INFO, "???dd"))
 
     @property
     def rms_amps(self) -> float:
-        request = struct.pack(">B", Code.GET_RMS_AMPS)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_RMS_AMPS, "d")
+        request = struct.pack(">B", PumpCode.GET_RMS_AMPS)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_RMS_AMPS, "d")
 
     @rms_amps.setter
     def rms_amps(self, amps: float):
-        request = struct.pack(">Bd", Code.SET_RMS_AMPS, amps)
-        self._socket.write(request)
-        self._read_packet(Code.SET_RMS_AMPS)
+        request = struct.pack(">Bd", PumpCode.SET_RMS_AMPS, amps)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_RMS_AMPS)
 
     @property
     def stop_rms_amps(self) -> float:
-        request = struct.pack(">B", Code.GET_STOP_RMS_AMPS)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_STOP_RMS_AMPS, "d")
+        request = struct.pack(">B", PumpCode.GET_STOP_RMS_AMPS)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_STOP_RMS_AMPS, "d")
 
     @stop_rms_amps.setter
     def stop_rms_amps(self, amps: float):
-        request = struct.pack(">Bd", Code.SET_STOP_RMS_AMPS, amps)
-        self._socket.write(request)
-        self._read_packet(Code.SET_STOP_RMS_AMPS)
+        request = struct.pack(">Bd", PumpCode.SET_STOP_RMS_AMPS, amps)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_STOP_RMS_AMPS)
 
     @property
     def stop_mode(self) -> StopMode:
-        request = struct.pack(">B", Code.GET_STOP_MODE)
-        self._socket.write(request)
-        return typing.get_args(StopMode)[self._read_packet(Code.GET_STOP_MODE, "B")]
+        request = struct.pack(">B", PumpCode.GET_STOP_MODE)
+        self._pump.write(request)
+        return typing.get_args(StopMode)[self._read_pump(PumpCode.GET_STOP_MODE, "B")]
 
     @stop_mode.setter
     def stop_mode(self, mode: StopMode):
-        request = struct.pack(">BB", Code.SET_STOP_MODE, typing.get_args(StopMode).index(mode))
-        self._socket.write(request)
-        self._read_packet(Code.SET_STOP_MODE)
-
-    @property
-    def powerdown_duration_s(self) -> float:
-        request = struct.pack(">B", Code.GET_POWERDOWN_DURATION_S)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_POWERDOWN_DURATION_S, "d")
-
-    @powerdown_duration_s.setter
-    def powerdown_duration_s(self, duration: float):
-        request = struct.pack(">Bd", Code.SET_POWERDOWN_DURATION_S, duration)
-        self._socket.write(request)
-        self._read_packet(Code.SET_POWERDOWN_DURATION_S)
-
-    @property
-    def powerdown_delay_s(self) -> float:
-        request = struct.pack(">B", Code.GET_POWERDOWN_DELAY_S)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_POWERDOWN_DELAY_S, "d")
-
-    @powerdown_delay_s.setter
-    def powerdown_delay_s(self, delay: float):
-        request = struct.pack(">Bd", Code.SET_POWERDOWN_DELAY_S, delay)
-        self._socket.write(request)
-        self._read_packet(Code.SET_POWERDOWN_DELAY_S)
+        request = struct.pack(">BB", PumpCode.SET_STOP_MODE, typing.get_args(StopMode).index(mode))
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_STOP_MODE)
 
     @property
     def microsteps(self) -> int:
-        request = struct.pack(">B", Code.GET_MICROSTEPS)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_MICROSTEPS, "H")
+        request = struct.pack(">B", PumpCode.GET_MICROSTEPS)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_MICROSTEPS, "H")
 
     @microsteps.setter
     def microsteps(self, microsteps: int):
-        request = struct.pack(">BH", Code.SET_MICROSTEPS, microsteps)
-        self._socket.write(request)
-        self._read_packet(Code.SET_MICROSTEPS)
+        request = struct.pack(">BH", PumpCode.SET_MICROSTEPS, microsteps)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_MICROSTEPS)
 
     @property
     def blank_time(self) -> BlankTime:
-        request = struct.pack(">B", Code.GET_BLANK_TIME)
-        self._socket.write(request)
-        return typing.get_args(BlankTime)[self._read_packet(Code.GET_BLANK_TIME, "B")]
+        request = struct.pack(">B", PumpCode.GET_BLANK_TIME)
+        self._pump.write(request)
+        return typing.get_args(BlankTime)[self._read_pump(PumpCode.GET_BLANK_TIME, "B")]
 
     @blank_time.setter
     def blank_time(self, time_value: BlankTime):
         request = struct.pack(
-            ">BB", Code.SET_BLANK_TIME, typing.get_args(BlankTime).index(time_value)
+            ">BB", PumpCode.SET_BLANK_TIME, typing.get_args(BlankTime).index(time_value)
         )
-        self._socket.write(request)
-        self._read_packet(Code.SET_BLANK_TIME)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_BLANK_TIME)
 
     @property
     def hysteresis_end(self) -> int:
-        request = struct.pack(">B", Code.GET_HYSTERESIS_END)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_HYSTERESIS_END, "b")
+        request = struct.pack(">B", PumpCode.GET_HYSTERESIS_END)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_HYSTERESIS_END, "b")
 
     @hysteresis_end.setter
     def hysteresis_end(self, end: int):
-        request = struct.pack(">Bb", Code.SET_HYSTERESIS_END, end)
-        self._socket.write(request)
-        self._read_packet(Code.SET_HYSTERESIS_END)
+        request = struct.pack(">Bb", PumpCode.SET_HYSTERESIS_END, end)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_HYSTERESIS_END)
 
     @property
     def hysteresis_start(self) -> int:
-        request = struct.pack(">B", Code.GET_HYSTERESIS_START)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_HYSTERESIS_START, "B")
+        request = struct.pack(">B", PumpCode.GET_HYSTERESIS_START)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_HYSTERESIS_START, "B")
 
     @hysteresis_start.setter
     def hysteresis_start(self, start: int):
-        request = struct.pack(">BB", Code.SET_HYSTERESIS_START, start)
-        self._socket.write(request)
-        self._read_packet(Code.SET_HYSTERESIS_START)
+        request = struct.pack(">BB", PumpCode.SET_HYSTERESIS_START, start)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_HYSTERESIS_START)
 
     @property
     def decay_time(self) -> int:
-        request = struct.pack(">B", Code.GET_DECAY_TIME)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_DECAY_TIME, "B")
+        request = struct.pack(">B", PumpCode.GET_DECAY_TIME)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_DECAY_TIME, "B")
 
     @decay_time.setter
     def decay_time(self, time_value: int):
-        request = struct.pack(">BB", Code.SET_DECAY_TIME, time_value)
-        self._socket.write(request)
-        self._read_packet(Code.SET_DECAY_TIME)
+        request = struct.pack(">BB", PumpCode.SET_DECAY_TIME, time_value)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_DECAY_TIME)
 
     @property
     def pwm_max_rpm(self) -> float:
-        request = struct.pack(">B", Code.GET_PWM_MAX_RPM)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_PWM_MAX_RPM, "d")
+        request = struct.pack(">B", PumpCode.GET_PWM_MAX_RPM)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_PWM_MAX_RPM, "d")
 
     @pwm_max_rpm.setter
     def pwm_max_rpm(self, rpm: float):
-        request = struct.pack(">Bd", Code.SET_PWM_MAX_RPM, rpm)
-        self._socket.write(request)
-        self._read_packet(Code.SET_PWM_MAX_RPM)
+        request = struct.pack(">Bd", PumpCode.SET_PWM_MAX_RPM, rpm)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_PWM_MAX_RPM)
 
     @property
     def driver_switch_autoscale_limit(self) -> int:
-        request = struct.pack(">B", Code.GET_DRIVER_SWITCH_AUTOSCALE_LIMIT)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_DRIVER_SWITCH_AUTOSCALE_LIMIT, "B")
+        request = struct.pack(">B", PumpCode.GET_DRIVER_SWITCH_AUTOSCALE_LIMIT)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_DRIVER_SWITCH_AUTOSCALE_LIMIT, "B")
 
     @driver_switch_autoscale_limit.setter
     def driver_switch_autoscale_limit(self, limit: int):
-        request = struct.pack(">BB", Code.SET_DRIVER_SWITCH_AUTOSCALE_LIMIT, limit)
-        self._socket.write(request)
-        self._read_packet(Code.SET_DRIVER_SWITCH_AUTOSCALE_LIMIT)
+        request = struct.pack(">BB", PumpCode.SET_DRIVER_SWITCH_AUTOSCALE_LIMIT, limit)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_DRIVER_SWITCH_AUTOSCALE_LIMIT)
 
     @property
     def max_amplitude_change(self) -> int:
-        request = struct.pack(">B", Code.GET_MAX_AMPLITUDE_CHANGE)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_MAX_AMPLITUDE_CHANGE, "B")
+        request = struct.pack(">B", PumpCode.GET_MAX_AMPLITUDE_CHANGE)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_MAX_AMPLITUDE_CHANGE, "B")
 
     @max_amplitude_change.setter
     def max_amplitude_change(self, change: int):
-        request = struct.pack(">BB", Code.SET_MAX_AMPLITUDE_CHANGE, change)
-        self._socket.write(request)
-        self._read_packet(Code.SET_MAX_AMPLITUDE_CHANGE)
+        request = struct.pack(">BB", PumpCode.SET_MAX_AMPLITUDE_CHANGE, change)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_MAX_AMPLITUDE_CHANGE)
 
     @property
     def pwm_autogradient(self) -> bool:
-        request = struct.pack(">B", Code.GET_PWM_AUTOGRADIENT)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_PWM_AUTOGRADIENT, "?")
+        request = struct.pack(">B", PumpCode.GET_PWM_AUTOGRADIENT)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_PWM_AUTOGRADIENT, "?")
 
     @pwm_autogradient.setter
     def pwm_autogradient(self, enable: bool):
-        request = struct.pack(">B?", Code.SET_PWM_AUTOGRADIENT, enable)
-        self._socket.write(request)
-        self._read_packet(Code.SET_PWM_AUTOGRADIENT)
+        request = struct.pack(">B?", PumpCode.SET_PWM_AUTOGRADIENT, enable)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_PWM_AUTOGRADIENT)
 
     @property
     def pwn_autoscale(self) -> bool:
-        request = struct.pack(">B", Code.GET_PWN_AUTOSCALE)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_PWN_AUTOSCALE, "?")
+        request = struct.pack(">B", PumpCode.GET_PWN_AUTOSCALE)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_PWN_AUTOSCALE, "?")
 
     @pwn_autoscale.setter
     def pwn_autoscale(self, enable: bool):
-        request = struct.pack(">B?", Code.SET_PWN_AUTOSCALE, enable)
-        self._socket.write(request)
-        self._read_packet(Code.SET_PWN_AUTOSCALE)
+        request = struct.pack(">B?", PumpCode.SET_PWN_AUTOSCALE, enable)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_PWN_AUTOSCALE)
 
     @property
     def pwm_frequency(self) -> PwmFrequency:
-        request = struct.pack(">B", Code.GET_PWM_FREQUENCY)
-        self._socket.write(request)
-        return typing.get_args(PwmFrequency)[self._read_packet(Code.GET_PWM_FREQUENCY, "B")]
+        request = struct.pack(">B", PumpCode.GET_PWM_FREQUENCY)
+        self._pump.write(request)
+        return typing.get_args(PwmFrequency)[self._read_pump(PumpCode.GET_PWM_FREQUENCY, "B")]
 
     @pwm_frequency.setter
     def pwm_frequency(self, frequency: PwmFrequency):
         request = struct.pack(
-            ">BB", Code.SET_PWM_FREQUENCY, typing.get_args(PwmFrequency).index(frequency)
+            ">BB", PumpCode.SET_PWM_FREQUENCY, typing.get_args(PwmFrequency).index(frequency)
         )
-        self._socket.write(request)
-        self._read_packet(Code.SET_PWM_FREQUENCY)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_PWM_FREQUENCY)
 
     @property
     def pwm_gradient(self) -> int:
-        request = struct.pack(">B", Code.GET_PWM_GRADIENT)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_PWM_GRADIENT, "B")
+        request = struct.pack(">B", PumpCode.GET_PWM_GRADIENT)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_PWM_GRADIENT, "B")
 
     @pwm_gradient.setter
     def pwm_gradient(self, gradient: int):
-        request = struct.pack(">BB", Code.SET_PWM_GRADIENT, gradient)
-        self._socket.write(request)
-        self._read_packet(Code.SET_PWM_GRADIENT)
+        request = struct.pack(">BB", PumpCode.SET_PWM_GRADIENT, gradient)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_PWM_GRADIENT)
 
     @property
     def pwm_offset(self) -> int:
-        request = struct.pack(">B", Code.GET_PWM_OFFSET)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_PWM_OFFSET, "B")
+        request = struct.pack(">B", PumpCode.GET_PWM_OFFSET)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_PWM_OFFSET, "B")
 
     @pwm_offset.setter
     def pwm_offset(self, offset: int):
-        request = struct.pack(">BB", Code.SET_PWM_OFFSET, offset)
-        self._socket.write(request)
-        self._read_packet(Code.SET_PWM_OFFSET)
+        request = struct.pack(">BB", PumpCode.SET_PWM_OFFSET, offset)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_PWM_OFFSET)
 
     @property
     def charge_pump_undervoltage(self) -> bool:
-        request = struct.pack(">B", Code.GET_CHARGE_PUMP_UNDERVOLTAGE)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_CHARGE_PUMP_UNDERVOLTAGE, "?")
+        request = struct.pack(">B", PumpCode.GET_CHARGE_PUMP_UNDERVOLTAGE)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_CHARGE_PUMP_UNDERVOLTAGE, "?")
 
     @property
     def microstep_time(self) -> int:
-        request = struct.pack(">B", Code.GET_MICROSTEP_TIME)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_MICROSTEP_TIME, "I")
+        request = struct.pack(">B", PumpCode.GET_MICROSTEP_TIME)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_MICROSTEP_TIME, "I")
 
     @property
     def motor_load(self) -> int:
-        request = struct.pack(">B", Code.GET_MOTOR_LOAD)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_MOTOR_LOAD, "H")
+        request = struct.pack(">B", PumpCode.GET_MOTOR_LOAD)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_MOTOR_LOAD, "H")
 
     @property
     def microstep_current(self) -> tuple[int, int]:
-        request = struct.pack(">B", Code.GET_MICROSTEP_CURRENT)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_MICROSTEP_CURRENT, "hh")
+        request = struct.pack(">B", PumpCode.GET_MICROSTEP_CURRENT)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_MICROSTEP_CURRENT, "hh")
 
     @property
     def pwm_mode(self) -> bool:
-        request = struct.pack(">B", Code.GET_PWM_MODE)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_PWM_MODE, "?")
+        request = struct.pack(">B", PumpCode.GET_PWM_MODE)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_PWM_MODE, "?")
 
     @property
     def current_scale(self) -> int:
-        request = struct.pack(">B", Code.GET_CURRENT_SCALE)
-        self._socket.write(request)
-        return self._read_packet(Code.GET_CURRENT_SCALE, "B")
+        request = struct.pack(">B", PumpCode.GET_CURRENT_SCALE)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_CURRENT_SCALE, "B")
 
     @property
     def driver_temperature(self) -> TemperatureThreshold:
-        request = struct.pack(">B", Code.GET_TEMPERATURE)
-        self._socket.write(request)
-        return typing.get_args(TemperatureThreshold)[self._read_packet(Code.GET_TEMPERATURE, "B")]
+        request = struct.pack(">B", PumpCode.GET_TEMPERATURE)
+        self._pump.write(request)
+        return typing.get_args(TemperatureThreshold)[self._read_pump(PumpCode.GET_TEMPERATURE, "B")]
 
     def flow_history(self) -> list[float]:
-        request = struct.pack(">B", Code.GET_FLOW_HISTORY)
-        self._socket.write(request)
-        return list(self._read_packet(Code.GET_FLOW_HISTORY, "1000d"))
+        request = struct.pack(">B", PumpCode.GET_FLOW_HISTORY)
+        self._pump.write(request)
+        return list(self._read_pump(PumpCode.GET_FLOW_HISTORY, "1000d"))
 
-    def _read_packet(self, assert_code: Code, response_format: str = "") -> Any:
-        response = self._socket.read()
+    @property
+    def air_stop(self) -> bool:
+        request = struct.pack(">B", PumpCode.GET_AIR_STOP)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_AIR_STOP, "?")
+
+    @air_stop.setter
+    def air_stop(self, enabled: bool):
+        request = struct.pack(">B?", PumpCode.SET_AIR_STOP, enabled)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_AIR_STOP)
+
+    def home(self):
+        request = struct.pack(">B", CncCode.HOME)
+        self._cnc.write(request)
+        self._read_cnc(CncCode.HOME)
+
+    @property
+    def xyz(self) -> tuple[float, float, float]:
+        request = struct.pack(">B", CncCode.GET_POS)
+        self._cnc.write(request)
+        return self._read_cnc(CncCode.GET_POS, "ddd")
+
+    @xyz.setter
+    def xyz(self, xyz: tuple[float, float, float]):
+        request = struct.pack(">Bddd", CncCode.SET_POS, *xyz)
+        self._cnc.write(request)
+        self._read_cnc(CncCode.SET_POS)
+
+    def _read_pump(self, assert_code: int, response_format: str = "") -> Any:
+        return self._read(self._pump, assert_code, response_format)
+
+    def _read_cnc(self, assert_code: int, response_format: str = "") -> Any:
+        return self._read(self._cnc, assert_code, response_format)
+
+    def _read(self, socket: packet.PacketStream, assert_code: int, response_format: str = "") -> Any:
+        response = socket.read()
         code = struct.unpack(">B", response[:1])[0]
-        if code == Code.FAIL:
+        if code == 0xFF:
             raise RuntimeError("Device reported failure.")
         elif code != assert_code:
             raise RuntimeError(f"Expected {assert_code} got {code=}.")

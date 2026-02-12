@@ -5,7 +5,7 @@ from serial.tools import list_ports
 
 
 class PacketStream:
-    def __init__(self, timeout_s: int = 1):
+    def __init__(self, device_id: int, timeout_s: int = 1):
         device_found = False
         for port in list_ports.comports():
             if port.manufacturer is not None and "Espressif" in port.manufacturer:
@@ -14,14 +14,14 @@ class PacketStream:
                     self._socket.reset_input_buffer()
                     self.write(bytes([0]))
                     result = self.read()
-                    if len(result) == 1 and result[0] == 0:
+                    if len(result) == 2 and result[0] == 0 and result[1] == device_id:
                         device_found = True
                         break
                 except Exception:
                     pass
                 self._socket.close()
         if not device_found:
-            raise ConnectionError("Could not find a valid device.")
+            raise ConnectionError(f"Could not find device with id {device_id}.")
 
     def write(self, request: Buffer):
         data = memoryview(request).cast("B")
