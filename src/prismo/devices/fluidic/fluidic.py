@@ -1,10 +1,14 @@
+import math
 import struct
+import time
 import typing
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any, Literal
 
 from . import packet
+
+_STEPS_PER_MM = 4096 / (math.pi * 24)
 
 
 class CncCode(IntEnum):
@@ -92,11 +96,20 @@ class PwmState:
 
 
 class Sipper:
-    def __init__(self, name: str):
+    def __init__(
+        self,
+        name: str,
+        h12: tuple[float, float, float],
+        plate_dims: tuple[float, float] = (99.0, 63.0),
+    ):
         self.name = name
         self._pump = packet.PacketStream(device_id=0)
         self._cnc = packet.PacketStream(device_id=1)
         self._ul_per_min = float("nan")
+        self._h12_x, self._h12_y, self._well_z = h12
+        self._dx, self._dy = plate_dims
+        self._x_spacing = self._dx / 11
+        self._y_spacing = self._dy / 7
 
     @property
     def air(self) -> bool:
@@ -419,43 +432,69 @@ class Sipper:
         self._read_cnc(CncCode.HOME)
 
     @property
-    def xyz(self) -> tuple[int, int, int]:
+    def xyz(self) -> tuple[float, float, float]:
         request = struct.pack(">B", CncCode.GET_POS)
         self._cnc.write(request)
-        return self._read_cnc(CncCode.GET_POS, "qqq")
+        sx, sy, sz = self._read_cnc(CncCode.GET_POS, "qqq")
+        return (sx / _STEPS_PER_MM, sy / _STEPS_PER_MM, sz / _STEPS_PER_MM)
 
     @xyz.setter
-    def xyz(self, xyz: tuple[int, int, int]):
-        request = struct.pack(">Bqqq", CncCode.SET_POS, *xyz)
+    def xyz(self, xyz: tuple[float, float, float]):
+        target = tuple(round(v * _STEPS_PER_MM) for v in xyz)
+        request = struct.pack(">Bqqq", CncCode.SET_POS, *target)
         self._cnc.write(request)
         self._read_cnc(CncCode.SET_POS)
+        request = struct.pack(">B", CncCode.GET_POS)
+        self._cnc.write(request)
+        while self._read_cnc(CncCode.GET_POS, "qqq") != target:
+            time.sleep(0.01)
+            self._cnc.write(request)
 
     @property
-    def x(self) -> int:
+    def x(self) -> float:
         return self.xyz[0]
 
     @x.setter
-    def x(self, value: int):
+    def x(self, value: float):
         _, y, z = self.xyz
         self.xyz = (value, y, z)
 
     @property
-    def y(self) -> int:
+    def y(self) -> float:
         return self.xyz[1]
 
     @y.setter
-    def y(self, value: int):
+    def y(self, value: float):
         x, _, z = self.xyz
         self.xyz = (x, value, z)
 
     @property
-    def z(self) -> int:
+    def z(self) -> float:
         return self.xyz[2]
 
     @z.setter
-    def z(self, value: int):
+    def z(self, value: float):
         x, y, _ = self.xyz
         self.xyz = (x, y, value)
+
+    @property
+    def well(self) -> str:
+        x, y, _ = self.xyz
+        col = round((self._h12_x + self._dx - x) / self._x_spacing)
+        row = round((self._h12_y + self._dy - y) / self._y_spacing)
+        col = max(0, min(11, col))
+        row = max(0, min(7, row))
+        return f"{chr(ord('A') + row)}{col + 1}"
+
+    @well.setter
+    def well(self, well: str):
+        row = ord(well[0].upper()) - ord("A")
+        col = int(well[1:]) - 1
+        x = self._h12_x + self._dx - col * self._x_spacing
+        y = self._h12_y + self._dy - row * self._y_spacing
+        self.z = 0.0
+        self.xyz = (x, y, 0.0)
+        self.xyz = (x, y, self._well_z)
 
     def _read_pump(self, assert_code: int, response_format: str = "") -> Any:
         return self._read(self._pump, assert_code, response_format)
