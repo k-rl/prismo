@@ -1,4 +1,5 @@
 import math
+import re
 import struct
 import time
 import typing
@@ -99,17 +100,19 @@ class Sipper:
     def __init__(
         self,
         name: str,
-        h12: tuple[float, float, float],
-        plate_dims: tuple[float, float] = (99.0, 63.0),
+        last_well: tuple[float, float, float] = (6.98, 18.5, 30.1),
+        rows: int = 8,
+        cols: int = 12,
+        well_dist: float = 9.0,
     ):
         self.name = name
         self._pump = packet.PacketStream(device_id=0)
         self._cnc = packet.PacketStream(device_id=1)
         self._ul_per_min = float("nan")
-        self._h12_x, self._h12_y, self._well_z = h12
-        self._dx, self._dy = plate_dims
-        self._x_spacing = self._dx / 11
-        self._y_spacing = self._dy / 7
+        self._last_well_x, self._last_well_y, self._well_z = last_well
+        self._rows = rows
+        self._cols = cols
+        self._well_dist = well_dist
 
     @property
     def air(self) -> bool:
@@ -480,18 +483,26 @@ class Sipper:
     @property
     def well(self) -> str:
         x, y, _ = self.xyz
-        col = round((self._h12_x + self._dx - x) / self._x_spacing)
-        row = round((self._h12_y + self._dy - y) / self._y_spacing)
-        if not (0 <= col <= 11 and 0 <= row <= 7):
+        dx = self._well_dist * (self._cols - 1)
+        dy = self._well_dist * (self._rows - 1)
+        col = round((self._last_well_x + dx - x) / self._well_dist)
+        row = round((self._last_well_y + dy - y) / self._well_dist)
+        if not (0 <= col < self._cols and 0 <= row < self._rows):
             return ""
         return f"{chr(ord('A') + row)}{col + 1}"
 
     @well.setter
     def well(self, well: str):
+        if not re.fullmatch(r"[A-Za-z]\d+", well):
+            raise ValueError(f"Invalid well format {well!r}, expected e.g. 'A1'.")
         row = ord(well[0].upper()) - ord("A")
         col = int(well[1:]) - 1
-        x = self._h12_x + self._dx - col * self._x_spacing
-        y = self._h12_y + self._dy - row * self._y_spacing
+        if not (0 <= row < self._rows and 0 <= col < self._cols):
+            raise ValueError(f"Well {well!r} is outside the {self._rows}x{self._cols} plate.")
+        dx = self._well_dist * (self._cols - 1)
+        dy = self._well_dist * (self._rows - 1)
+        x = self._last_well_x + dx - col * self._well_dist
+        y = self._last_well_y + dy - row * self._well_dist
         self.z = 0.0
         self.xyz = (x, y, 0.0)
         self.xyz = (x, y, self._well_z)
