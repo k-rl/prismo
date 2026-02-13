@@ -15,8 +15,13 @@ _STEPS_PER_MM = 4096 / (math.pi * 24)
 class CncCode(IntEnum):
     INIT = 0x00
     HOME = 0x01
-    SET_POS = 0x02
-    GET_POS = 0x03
+    IS_HOMING = 0x02
+    SET_POS = 0x03
+    GET_POS = 0x04
+    SET_SPEED = 0x05
+    GET_SPEED = 0x06
+    SET_ACCEL = 0x07
+    GET_ACCEL = 0x08
     FAIL = 0xFF
 
 
@@ -433,6 +438,38 @@ class Sipper:
         request = struct.pack(">B", CncCode.HOME)
         self._cnc.write(request)
         self._read_cnc(CncCode.HOME)
+        while self.homing:
+            time.sleep(0.01)
+
+    @property
+    def homing(self) -> bool:
+        request = struct.pack(">B", CncCode.IS_HOMING)
+        self._cnc.write(request)
+        return self._read_cnc(CncCode.IS_HOMING, "?")
+
+    @property
+    def cnc_speed(self) -> float:
+        request = struct.pack(">B", CncCode.GET_SPEED)
+        self._cnc.write(request)
+        return self._read_cnc(CncCode.GET_SPEED, "d")
+
+    @cnc_speed.setter
+    def cnc_speed(self, value: float):
+        request = struct.pack(">Bd", CncCode.SET_SPEED, value)
+        self._cnc.write(request)
+        self._read_cnc(CncCode.SET_SPEED)
+
+    @property
+    def cnc_accel(self) -> float:
+        request = struct.pack(">B", CncCode.GET_ACCEL)
+        self._cnc.write(request)
+        return self._read_cnc(CncCode.GET_ACCEL, "d")
+
+    @cnc_accel.setter
+    def cnc_accel(self, value: float):
+        request = struct.pack(">Bd", CncCode.SET_ACCEL, value)
+        self._cnc.write(request)
+        self._read_cnc(CncCode.SET_ACCEL)
 
     @property
     def xyz(self) -> tuple[float, float, float]:
