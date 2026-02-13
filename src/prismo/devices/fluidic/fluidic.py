@@ -95,7 +95,7 @@ class Sipper:
     def __init__(self, name: str):
         self.name = name
         self._pump = packet.PacketStream(device_id=0)
-        # self._cnc = packet.PacketStream(device_id=1)
+        self._cnc = packet.PacketStream(device_id=1)
         self._ul_per_min = float("nan")
 
     @property
@@ -419,14 +419,14 @@ class Sipper:
         self._read_cnc(CncCode.HOME)
 
     @property
-    def xyz(self) -> tuple[float, float, float]:
+    def xyz(self) -> tuple[int, int, int]:
         request = struct.pack(">B", CncCode.GET_POS)
         self._cnc.write(request)
-        return self._read_cnc(CncCode.GET_POS, "ddd")
+        return self._read_cnc(CncCode.GET_POS, "qqq")
 
     @xyz.setter
-    def xyz(self, xyz: tuple[float, float, float]):
-        request = struct.pack(">Bddd", CncCode.SET_POS, *xyz)
+    def xyz(self, xyz: tuple[int, int, int]):
+        request = struct.pack(">Bqqq", CncCode.SET_POS, *xyz)
         self._cnc.write(request)
         self._read_cnc(CncCode.SET_POS)
 
