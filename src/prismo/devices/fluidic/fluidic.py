@@ -430,6 +430,33 @@ class Sipper:
         self._cnc.write(request)
         self._read_cnc(CncCode.SET_POS)
 
+    @property
+    def x(self) -> int:
+        return self.xyz[0]
+
+    @x.setter
+    def x(self, value: int):
+        _, y, z = self.xyz
+        self.xyz = (value, y, z)
+
+    @property
+    def y(self) -> int:
+        return self.xyz[1]
+
+    @y.setter
+    def y(self, value: int):
+        x, _, z = self.xyz
+        self.xyz = (x, value, z)
+
+    @property
+    def z(self) -> int:
+        return self.xyz[2]
+
+    @z.setter
+    def z(self, value: int):
+        x, y, _ = self.xyz
+        self.xyz = (x, y, value)
+
     def _read_pump(self, assert_code: int, response_format: str = "") -> Any:
         return self._read(self._pump, assert_code, response_format)
 
