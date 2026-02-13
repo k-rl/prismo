@@ -482,8 +482,8 @@ class Sipper:
         x, y, _ = self.xyz
         col = round((self._h12_x + self._dx - x) / self._x_spacing)
         row = round((self._h12_y + self._dy - y) / self._y_spacing)
-        col = max(0, min(11, col))
-        row = max(0, min(7, row))
+        if not (0 <= col <= 11 and 0 <= row <= 7):
+            return ""
         return f"{chr(ord('A') + row)}{col + 1}"
 
     @well.setter
