@@ -105,7 +105,7 @@ class Sipper:
     def __init__(
         self,
         name: str,
-        last_well: tuple[float, float, float] = (6.98, 18.5, 30.1),
+        origin: tuple[float, float, float] = (105.98, 18.5, 30.1),
         rows: int = 8,
         cols: int = 12,
         well_dist: float = 9.0,
@@ -114,7 +114,7 @@ class Sipper:
         self._pump = packet.PacketStream(device_id=0)
         self._cnc = packet.PacketStream(device_id=1)
         self._ul_per_min = float("nan")
-        self._last_well_x, self._last_well_y, self._well_z = last_well
+        self._origin = origin
         self._rows = rows
         self._cols = cols
         self._well_dist = well_dist
@@ -482,11 +482,13 @@ class Sipper:
         request = struct.pack(">B", CncCode.GET_POS)
         self._cnc.write(request)
         sx, sy, sz = self._read_cnc(CncCode.GET_POS, "qqq")
-        return (sx / STEPS_PER_MM, sy / STEPS_PER_MM, sz / STEPS_PER_MM)
+        cx, cy, cz = sx / STEPS_PER_MM, sy / STEPS_PER_MM, sz / STEPS_PER_MM
+        return (self._origin[0] - cx, cy - self._origin[1], self._origin[2] - cz)
 
     @xyz.setter
     def xyz(self, xyz: tuple[float, float, float]):
-        target = tuple(round(v * STEPS_PER_MM) for v in xyz)
+        cnc = (self._origin[0] - xyz[0], xyz[1] + self._origin[1], self._origin[2] - xyz[2])
+        target = tuple(round(v * STEPS_PER_MM) for v in cnc)
         request = struct.pack(">Bqqq", CncCode.SET_POS, *target)
         self._cnc.write(request)
         self._read_cnc(CncCode.SET_POS)
@@ -526,29 +528,33 @@ class Sipper:
     @property
     def well(self) -> str:
         x, y, _ = self.xyz
-        dx = self._well_dist * (self._cols - 1)
-        dy = self._well_dist * (self._rows - 1)
-        col = round((self._last_well_x + dx - x) / self._well_dist)
-        row = round((self._last_well_y + dy - y) / self._well_dist)
+        col = round(x / self._well_dist)
+        row = self._rows - 1 - round(y / self._well_dist)
         if not (0 <= col < self._cols and 0 <= row < self._rows):
             return ""
         return f"{chr(ord('A') + row)}{col + 1}"
 
     @well.setter
     def well(self, well: str):
+        if not well:
+            self.z = self._origin[2]
         if not re.fullmatch(r"[A-Za-z]\d+", well):
             raise ValueError(f"Invalid well format {well!r}, expected e.g. 'A1'.")
+
+        # Convert well string to 0-indexed row/col.
         row = ord(well[0].upper()) - ord("A")
         col = int(well[1:]) - 1
         if not (0 <= row < self._rows and 0 <= col < self._cols):
             raise ValueError(f"Well {well!r} is outside the {self._rows}x{self._cols} plate.")
-        dx = self._well_dist * (self._cols - 1)
-        dy = self._well_dist * (self._rows - 1)
-        x = self._last_well_x + dx - col * self._well_dist
-        y = self._last_well_y + dy - row * self._well_dist
+
+        # Lift sipper up.
+        self.z = self._origin[2]
+        # Move sipper over the well.
+        x = col * self._well_dist
+        y = (self._rows - 1 - row) * self._well_dist
+        self.xyz = (x, y, self._origin[2])
+        # Put sipper down.
         self.z = 0.0
-        self.xyz = (x, y, 0.0)
-        self.xyz = (x, y, self._well_z)
 
     def _read_pump(self, assert_code: int, response_format: str = "") -> Any:
         return self._read(self._pump, assert_code, response_format)
