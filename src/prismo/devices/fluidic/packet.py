@@ -34,7 +34,7 @@ class PacketStream:
             if b != 0:
                 out.append(b)
                 offset += 1
-            elif b == 0 or offset == 255:
+            if b == 0 or offset == 255:
                 out.append(0)
                 out[offset_idx] = offset
                 offset = 1
@@ -59,10 +59,11 @@ class PacketStream:
                     pass
                 raise ValueError("Received unexpected zero byte in packet data.")
             out.extend(buf)
+            prev_size = size
             size = self._timeout_read(1)[0]
             if size == 0:
                 break
-            elif size != 255:
+            elif prev_size != 255:
                 out.append(0)
 
         return out
