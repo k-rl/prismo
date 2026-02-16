@@ -2,7 +2,8 @@ import logging
 from collections.abc import Iterator
 
 from .devices.microfluidic import Chip
-from .utils import run_async, sleep
+from .run import run_async
+from .utils import sleep
 
 logger = logging.getLogger(__name__)
 

@@ -168,7 +168,7 @@ def test_wait_calls_all_wait_devices(mock_core):
 
     wait1.wait.assert_called_once()
     wait2.wait.assert_called_once()
-    assert not hasattr(non_wait, 'wait') or not non_wait.wait.called
+    assert not hasattr(non_wait, "wait") or not non_wait.wait.called
 
 
 def test_context_manager(mock_core):

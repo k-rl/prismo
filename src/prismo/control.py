@@ -85,8 +85,8 @@ def load(config: dict[str, dict[str, Any]], path: str | None = None) -> "Control
                 devices.append(dev.demo.Stage(name, core))
             case "demo_valves":
                 devices.append(dev.demo.Valves(name, **params))
-            case "fluigent_flowcontroller":
-                devices.append(dev.fluigent.FlowController(name, **params))
+            case "fluidic_sipper":
+                devices.append(dev.fluidic.Sipper(name, **params))
             case "lambda_filter1":
                 devices.append(dev.sutter.Filter(name, core, filter="A", **params))
             case "lambda_filter2":
