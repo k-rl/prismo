@@ -408,7 +408,15 @@ class Sipper:
     def flow_history(self) -> list[float]:
         request = struct.pack(">B", PumpCode.GET_FLOW_HISTORY)
         self._pump.write(request)
-        return list(self._read_pump(PumpCode.GET_FLOW_HISTORY, "1000d"))
+        response = self._pump.read()
+        code = struct.unpack(">B", response[:1])[0]
+        if code == 0xFF:
+            raise RuntimeError("Device reported failure.")
+        elif code != PumpCode.GET_FLOW_HISTORY:
+            raise RuntimeError(f"Expected {PumpCode.GET_FLOW_HISTORY} got {code=}.")
+        data = response[1:]
+        n = len(data) // 8
+        return list(struct.unpack(f">{n}d", data))
 
     @property
     def valve(self) -> bool:
@@ -449,25 +457,27 @@ class Sipper:
 
     @property
     def cnc_speed(self) -> float:
+        """Max speed in mm/s."""
         request = struct.pack(">B", CncCode.GET_SPEED)
         self._cnc.write(request)
-        return self._read_cnc(CncCode.GET_SPEED, "d")
+        return self._read_cnc(CncCode.GET_SPEED, "d") / _STEPS_PER_MM
 
     @cnc_speed.setter
     def cnc_speed(self, value: float):
-        request = struct.pack(">Bd", CncCode.SET_SPEED, value)
+        request = struct.pack(">Bd", CncCode.SET_SPEED, value * _STEPS_PER_MM)
         self._cnc.write(request)
         self._read_cnc(CncCode.SET_SPEED)
 
     @property
     def cnc_accel(self) -> float:
+        """Acceleration in mm/s²."""
         request = struct.pack(">B", CncCode.GET_ACCEL)
         self._cnc.write(request)
-        return self._read_cnc(CncCode.GET_ACCEL, "d")
+        return self._read_cnc(CncCode.GET_ACCEL, "d") / _STEPS_PER_MM
 
     @cnc_accel.setter
     def cnc_accel(self, value: float):
-        request = struct.pack(">Bd", CncCode.SET_ACCEL, value)
+        request = struct.pack(">Bd", CncCode.SET_ACCEL, value * _STEPS_PER_MM)
         self._cnc.write(request)
         self._read_cnc(CncCode.SET_ACCEL)
 
