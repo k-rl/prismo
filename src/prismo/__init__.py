@@ -6,7 +6,7 @@ import logging
 import sys
 
 from beartype import BeartypeConf
-from beartype.claw import beartype_all, beartype_this_package
+from beartype.claw import beartype_this_package
 
 from prismo.control import load
 from prismo.run import acq, live, multi_acq, tiled_acq
@@ -14,7 +14,6 @@ from prismo.run import acq, live, multi_acq, tiled_acq
 from . import utils
 
 beartype_this_package(conf=BeartypeConf(is_pep484_tower=True))
-beartype_all(conf=BeartypeConf(violation_type=UserWarning, is_pep484_tower=True))
 
 
 class IndentFormatter(logging.Formatter):
