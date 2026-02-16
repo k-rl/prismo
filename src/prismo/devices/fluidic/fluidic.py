@@ -37,39 +37,7 @@ class PumpCode(IntEnum):
     SET_STOP_RMS_AMPS = 0x08
     GET_STOP_MODE = 0x09
     SET_STOP_MODE = 0x0A
-    GET_MICROSTEPS = 0x0F
-    SET_MICROSTEPS = 0x10
-    GET_BLANK_TIME = 0x1B
-    SET_BLANK_TIME = 0x1C
-    GET_HYSTERESIS_END = 0x1D
-    SET_HYSTERESIS_END = 0x1E
-    GET_HYSTERESIS_START = 0x1F
-    SET_HYSTERESIS_START = 0x20
-    GET_DECAY_TIME = 0x21
-    SET_DECAY_TIME = 0x22
-    GET_PWM_MAX_RPM = 0x23
-    SET_PWM_MAX_RPM = 0x24
-    GET_DRIVER_SWITCH_AUTOSCALE_LIMIT = 0x25
-    SET_DRIVER_SWITCH_AUTOSCALE_LIMIT = 0x26
-    GET_MAX_AMPLITUDE_CHANGE = 0x27
-    SET_MAX_AMPLITUDE_CHANGE = 0x28
-    GET_PWM_AUTOGRADIENT = 0x29
-    SET_PWM_AUTOGRADIENT = 0x2A
-    GET_PWN_AUTOSCALE = 0x2B
-    SET_PWN_AUTOSCALE = 0x2C
-    GET_PWM_FREQUENCY = 0x2D
-    SET_PWM_FREQUENCY = 0x2E
-    GET_PWM_GRADIENT = 0x2F
-    SET_PWM_GRADIENT = 0x30
-    GET_PWM_OFFSET = 0x31
-    SET_PWM_OFFSET = 0x32
-    GET_CHARGE_PUMP_UNDERVOLTAGE = 0x33
-    GET_MICROSTEP_TIME = 0x3E
     GET_MOTOR_LOAD = 0x3F
-    GET_MICROSTEP_CURRENT = 0x41
-    GET_PWM_MODE = 0x43
-    GET_CURRENT_SCALE = 0x44
-    GET_TEMPERATURE = 0x45
     GET_FLOW_HISTORY = 0x4A
     GET_VALVE = 0x4B
     SET_VALVE = 0x4C
@@ -94,13 +62,6 @@ class SensorInfo:
 
 
 @dataclass
-class PwmState:
-    auto_grad: int
-    auto_offset: int
-    scale: int
-    offset: int
-
-
 class Sipper:
     def __init__(
         self,
@@ -128,16 +89,8 @@ class Sipper:
         return self.sensor_info().high_flow
 
     @property
-    def exp_smoothing(self) -> bool:
-        return self.sensor_info().exp_smoothing
-
-    @property
     def flow_rate(self) -> float:
         return self.sensor_info().ul_per_min
-
-    @property
-    def temperature(self) -> float:
-        return self.sensor_info().degrees_c
 
     @property
     def rpm(self) -> float:
@@ -204,206 +157,10 @@ class Sipper:
         self._read_pump(PumpCode.SET_STOP_MODE)
 
     @property
-    def microsteps(self) -> int:
-        request = struct.pack(">B", PumpCode.GET_MICROSTEPS)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_MICROSTEPS, "H")
-
-    @microsteps.setter
-    def microsteps(self, microsteps: int):
-        request = struct.pack(">BH", PumpCode.SET_MICROSTEPS, microsteps)
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_MICROSTEPS)
-
-    @property
-    def blank_time(self) -> BlankTime:
-        request = struct.pack(">B", PumpCode.GET_BLANK_TIME)
-        self._pump.write(request)
-        return typing.get_args(BlankTime)[self._read_pump(PumpCode.GET_BLANK_TIME, "B")]
-
-    @blank_time.setter
-    def blank_time(self, time_value: BlankTime):
-        request = struct.pack(
-            ">BB", PumpCode.SET_BLANK_TIME, typing.get_args(BlankTime).index(time_value)
-        )
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_BLANK_TIME)
-
-    @property
-    def hysteresis_end(self) -> int:
-        request = struct.pack(">B", PumpCode.GET_HYSTERESIS_END)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_HYSTERESIS_END, "b")
-
-    @hysteresis_end.setter
-    def hysteresis_end(self, end: int):
-        request = struct.pack(">Bb", PumpCode.SET_HYSTERESIS_END, end)
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_HYSTERESIS_END)
-
-    @property
-    def hysteresis_start(self) -> int:
-        request = struct.pack(">B", PumpCode.GET_HYSTERESIS_START)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_HYSTERESIS_START, "B")
-
-    @hysteresis_start.setter
-    def hysteresis_start(self, start: int):
-        request = struct.pack(">BB", PumpCode.SET_HYSTERESIS_START, start)
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_HYSTERESIS_START)
-
-    @property
-    def decay_time(self) -> int:
-        request = struct.pack(">B", PumpCode.GET_DECAY_TIME)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_DECAY_TIME, "B")
-
-    @decay_time.setter
-    def decay_time(self, time_value: int):
-        request = struct.pack(">BB", PumpCode.SET_DECAY_TIME, time_value)
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_DECAY_TIME)
-
-    @property
-    def pwm_max_rpm(self) -> float:
-        request = struct.pack(">B", PumpCode.GET_PWM_MAX_RPM)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_PWM_MAX_RPM, "d")
-
-    @pwm_max_rpm.setter
-    def pwm_max_rpm(self, rpm: float):
-        request = struct.pack(">Bd", PumpCode.SET_PWM_MAX_RPM, rpm)
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_PWM_MAX_RPM)
-
-    @property
-    def driver_switch_autoscale_limit(self) -> int:
-        request = struct.pack(">B", PumpCode.GET_DRIVER_SWITCH_AUTOSCALE_LIMIT)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_DRIVER_SWITCH_AUTOSCALE_LIMIT, "B")
-
-    @driver_switch_autoscale_limit.setter
-    def driver_switch_autoscale_limit(self, limit: int):
-        request = struct.pack(">BB", PumpCode.SET_DRIVER_SWITCH_AUTOSCALE_LIMIT, limit)
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_DRIVER_SWITCH_AUTOSCALE_LIMIT)
-
-    @property
-    def max_amplitude_change(self) -> int:
-        request = struct.pack(">B", PumpCode.GET_MAX_AMPLITUDE_CHANGE)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_MAX_AMPLITUDE_CHANGE, "B")
-
-    @max_amplitude_change.setter
-    def max_amplitude_change(self, change: int):
-        request = struct.pack(">BB", PumpCode.SET_MAX_AMPLITUDE_CHANGE, change)
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_MAX_AMPLITUDE_CHANGE)
-
-    @property
-    def pwm_autogradient(self) -> bool:
-        request = struct.pack(">B", PumpCode.GET_PWM_AUTOGRADIENT)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_PWM_AUTOGRADIENT, "?")
-
-    @pwm_autogradient.setter
-    def pwm_autogradient(self, enable: bool):
-        request = struct.pack(">B?", PumpCode.SET_PWM_AUTOGRADIENT, enable)
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_PWM_AUTOGRADIENT)
-
-    @property
-    def pwn_autoscale(self) -> bool:
-        request = struct.pack(">B", PumpCode.GET_PWN_AUTOSCALE)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_PWN_AUTOSCALE, "?")
-
-    @pwn_autoscale.setter
-    def pwn_autoscale(self, enable: bool):
-        request = struct.pack(">B?", PumpCode.SET_PWN_AUTOSCALE, enable)
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_PWN_AUTOSCALE)
-
-    @property
-    def pwm_frequency(self) -> PwmFrequency:
-        request = struct.pack(">B", PumpCode.GET_PWM_FREQUENCY)
-        self._pump.write(request)
-        return typing.get_args(PwmFrequency)[self._read_pump(PumpCode.GET_PWM_FREQUENCY, "B")]
-
-    @pwm_frequency.setter
-    def pwm_frequency(self, frequency: PwmFrequency):
-        request = struct.pack(
-            ">BB", PumpCode.SET_PWM_FREQUENCY, typing.get_args(PwmFrequency).index(frequency)
-        )
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_PWM_FREQUENCY)
-
-    @property
-    def pwm_gradient(self) -> int:
-        request = struct.pack(">B", PumpCode.GET_PWM_GRADIENT)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_PWM_GRADIENT, "B")
-
-    @pwm_gradient.setter
-    def pwm_gradient(self, gradient: int):
-        request = struct.pack(">BB", PumpCode.SET_PWM_GRADIENT, gradient)
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_PWM_GRADIENT)
-
-    @property
-    def pwm_offset(self) -> int:
-        request = struct.pack(">B", PumpCode.GET_PWM_OFFSET)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_PWM_OFFSET, "B")
-
-    @pwm_offset.setter
-    def pwm_offset(self, offset: int):
-        request = struct.pack(">BB", PumpCode.SET_PWM_OFFSET, offset)
-        self._pump.write(request)
-        self._read_pump(PumpCode.SET_PWM_OFFSET)
-
-    @property
-    def charge_pump_undervoltage(self) -> bool:
-        request = struct.pack(">B", PumpCode.GET_CHARGE_PUMP_UNDERVOLTAGE)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_CHARGE_PUMP_UNDERVOLTAGE, "?")
-
-    @property
-    def microstep_time(self) -> int:
-        request = struct.pack(">B", PumpCode.GET_MICROSTEP_TIME)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_MICROSTEP_TIME, "I")
-
-    @property
     def motor_load(self) -> int:
         request = struct.pack(">B", PumpCode.GET_MOTOR_LOAD)
         self._pump.write(request)
         return self._read_pump(PumpCode.GET_MOTOR_LOAD, "H")
-
-    @property
-    def microstep_current(self) -> tuple[int, int]:
-        request = struct.pack(">B", PumpCode.GET_MICROSTEP_CURRENT)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_MICROSTEP_CURRENT, "hh")
-
-    @property
-    def pwm_mode(self) -> bool:
-        request = struct.pack(">B", PumpCode.GET_PWM_MODE)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_PWM_MODE, "?")
-
-    @property
-    def current_scale(self) -> int:
-        request = struct.pack(">B", PumpCode.GET_CURRENT_SCALE)
-        self._pump.write(request)
-        return self._read_pump(PumpCode.GET_CURRENT_SCALE, "B")
-
-    @property
-    def driver_temperature(self) -> TemperatureThreshold:
-        request = struct.pack(">B", PumpCode.GET_TEMPERATURE)
-        self._pump.write(request)
-        return typing.get_args(TemperatureThreshold)[self._read_pump(PumpCode.GET_TEMPERATURE, "B")]
 
     def flow_history(self) -> list[float]:
         request = struct.pack(">B", PumpCode.GET_FLOW_HISTORY)
