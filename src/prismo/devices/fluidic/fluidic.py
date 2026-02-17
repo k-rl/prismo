@@ -102,11 +102,11 @@ class Sipper:
     def rpm(self) -> float:
         request = struct.pack(">B", PumpCode.GET_PUMP_RPM)
         self._pump.write(request)
-        return self._read_pump(PumpCode.GET_PUMP_RPM, "d")
+        return -self._read_pump(PumpCode.GET_PUMP_RPM, "d")
 
     @rpm.setter
     def rpm(self, rpm: float):
-        request = struct.pack(">Bd", PumpCode.SET_PUMP_RPM, rpm)
+        request = struct.pack(">Bd", PumpCode.SET_PUMP_RPM, -rpm)
         self._pump.write(request)
         self._read_pump(PumpCode.SET_PUMP_RPM)
 
@@ -293,7 +293,7 @@ class Sipper:
         x, y, _ = self.xyz
         col = round(x / self._well_dist)
         row = self._rows - 1 - round(y / self._well_dist)
-        if not (0 <= col < self._cols and 0 <= row < self._rows):
+        if not (0 <= col < self._cols and 0 <= row < self._rows) or self.z >= 1.0:
             return ""
         return f"{chr(ord('A') + row)}{col + 1}"
 
@@ -301,6 +301,7 @@ class Sipper:
     def well(self, well: str):
         if not well:
             self.z = self._origin[2]
+            return
         if not re.fullmatch(r"[A-Za-z]\d+", well):
             raise ValueError(f"Invalid well format {well!r}, expected e.g. 'A1'.")
 
@@ -319,7 +320,7 @@ class Sipper:
         # Put sipper down.
         self.z = 0.0
 
-    def sip(self, well: str, rpm: float, aspirate_s: float, flush_s: float, sip_rpm: float):
+    def sip(self, well: str):
         self.air_stop = False
         self.valve = "waste"
         if self.well:
@@ -330,6 +331,7 @@ class Sipper:
             # Move to the new well and lower sipper into liquid.
             self.rpm = 0
             self.well = well
+            self.rpm = self._waste_rpm
             # Sip until the air bubble reaches the sensor.
             while not self.air:
                 time.sleep(0.01)
