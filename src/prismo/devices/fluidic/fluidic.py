@@ -82,6 +82,9 @@ class Sipper:
         self._sip_rpm = sip_rpm
         self._waste_rpm = waste_rpm
         self._flush_time = flush_time
+        self.air_stop = True
+        self.rms_amps = 0.3
+        self.home()
 
     @property
     def air(self) -> bool:
@@ -317,6 +320,7 @@ class Sipper:
         self.z = 0.0
 
     def sip(self, well: str, rpm: float, aspirate_s: float, flush_s: float, sip_rpm: float):
+        self.air_stop = False
         self.valve = "waste"
         if self.well:
             self.well = ""
@@ -339,6 +343,7 @@ class Sipper:
         time.sleep(self._flush_time)
         self.valve = "flow"
         self.rpm = self._sip_rpm
+        self.air_stop = True
 
     def _read_pump(self, assert_code: int, response_format: str = "") -> Any:
         return self._read(self._pump, assert_code, response_format)
