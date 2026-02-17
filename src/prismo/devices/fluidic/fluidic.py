@@ -47,9 +47,6 @@ class PumpCode(IntEnum):
 
 
 StopMode = Literal["normal", "freewheel", "low_side", "high_side"]
-BlankTime = Literal[16, 24, 36, 54]
-PwmFrequency = Literal[1024, 683, 512, 410]
-TemperatureThreshold = Literal["normal", "120c", "143c", "150c", "157c"]
 
 
 @dataclass
@@ -70,6 +67,9 @@ class Sipper:
         rows: int = 8,
         cols: int = 12,
         well_dist: float = 9.0,
+        sip_rpm: float = 1.0,
+        waste_rpm: float = 60.0,
+        flush_time: float = 5.0,
     ):
         self.name = name
         self._pump = packet.PacketStream(device_id=0)
@@ -79,6 +79,9 @@ class Sipper:
         self._rows = rows
         self._cols = cols
         self._well_dist = well_dist
+        self._sip_rpm = sip_rpm
+        self._waste_rpm = waste_rpm
+        self._flush_time = flush_time
 
     @property
     def air(self) -> bool:
@@ -172,14 +175,14 @@ class Sipper:
         return list(struct.unpack(f">{length}d", response[3:]))
 
     @property
-    def valve(self) -> bool:
+    def valve(self) -> Literal["flow", "waste"]:
         request = struct.pack(">B", PumpCode.GET_VALVE)
         self._pump.write(request)
-        return self._read_pump(PumpCode.GET_VALVE, "?")
+        return "flow" if self._read_pump(PumpCode.GET_VALVE, "?") else "waste"
 
     @valve.setter
-    def valve(self, open: bool):
-        request = struct.pack(">B?", PumpCode.SET_VALVE, open)
+    def valve(self, dir: Literal["flow", "waste"]):
+        request = struct.pack(">B?", PumpCode.SET_VALVE, dir == "flow")
         self._pump.write(request)
         self._read_pump(PumpCode.SET_VALVE)
 
@@ -312,6 +315,30 @@ class Sipper:
         self.xyz = (x, y, self._origin[2])
         # Put sipper down.
         self.z = 0.0
+
+    def sip(self, well: str, rpm: float, aspirate_s: float, flush_s: float, sip_rpm: float):
+        self.valve = "waste"
+        if self.well:
+            self.well = ""
+            # Sip up an air bubble.
+            self.rpm = self._waste_rpm
+            time.sleep(3)
+            # Move to the new well and lower sipper into liquid.
+            self.rpm = 0
+            self.well = well
+            # Sip until the air bubble reaches the sensor.
+            while not self.air:
+                time.sleep(0.01)
+        else:
+            self.well = well
+            self.rpm = self._waste_rpm
+            while self.air:
+                time.sleep(0.01)
+
+        # Flush the air bubble through to waste.
+        time.sleep(self._flush_time)
+        self.valve = "flow"
+        self.rpm = self._sip_rpm
 
     def _read_pump(self, assert_code: int, response_format: str = "") -> Any:
         return self._read(self._pump, assert_code, response_format)
