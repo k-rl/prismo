@@ -41,8 +41,11 @@ class PumpCode(IntEnum):
     GET_FLOW_HISTORY = 0x4A
     GET_VALVE = 0x4B
     SET_VALVE = 0x4C
-    GET_AIR_STOP = 0x4D
-    SET_AIR_STOP = 0x4E
+    GET_FLUSH_TIME = 0x4D
+    SET_FLUSH_TIME = 0x4E
+    GET_FLUSH_RPM = 0x4F
+    SET_FLUSH_RPM = 0x50
+    GET_FLUSHING = 0x51
     FAIL = 0xFF
 
 
@@ -68,7 +71,7 @@ class Sipper:
         cols: int = 12,
         well_dist: float = 9.0,
         sip_rpm: float = 1.0,
-        waste_rpm: float = 60.0,
+        flush_rpm: float = 60.0,
         flush_time: float = 5.0,
     ):
         self.name = name
@@ -80,9 +83,8 @@ class Sipper:
         self._cols = cols
         self._well_dist = well_dist
         self._sip_rpm = sip_rpm
-        self._waste_rpm = waste_rpm
-        self._flush_time = flush_time
-        self.air_stop = True
+        self.flush_time = flush_time
+        self.flush_rpm = flush_rpm
         self.rms_amps = 0.3
         self.home()
 
@@ -190,16 +192,34 @@ class Sipper:
         self._read_pump(PumpCode.SET_VALVE)
 
     @property
-    def air_stop(self) -> bool:
-        request = struct.pack(">B", PumpCode.GET_AIR_STOP)
+    def flush_time(self) -> float:
+        request = struct.pack(">B", PumpCode.GET_FLUSH_TIME)
         self._pump.write(request)
-        return self._read_pump(PumpCode.GET_AIR_STOP, "?")
+        return self._read_pump(PumpCode.GET_FLUSH_TIME, "d")
 
-    @air_stop.setter
-    def air_stop(self, enabled: bool):
-        request = struct.pack(">B?", PumpCode.SET_AIR_STOP, enabled)
+    @flush_time.setter
+    def flush_time(self, seconds: float):
+        request = struct.pack(">Bd", PumpCode.SET_FLUSH_TIME, seconds)
         self._pump.write(request)
-        self._read_pump(PumpCode.SET_AIR_STOP)
+        self._read_pump(PumpCode.SET_FLUSH_TIME)
+
+    @property
+    def flush_rpm(self) -> float:
+        request = struct.pack(">B", PumpCode.GET_FLUSH_RPM)
+        self._pump.write(request)
+        return -self._read_pump(PumpCode.GET_FLUSH_RPM, "d")
+
+    @flush_rpm.setter
+    def flush_rpm(self, rpm: float):
+        request = struct.pack(">Bd", PumpCode.SET_FLUSH_RPM, -rpm)
+        self._pump.write(request)
+        self._read_pump(PumpCode.SET_FLUSH_RPM)
+
+    @property
+    def flushing(self) -> bool:
+        request = struct.pack(">B", PumpCode.GET_FLUSHING)
+        self._pump.write(request)
+        return self._read_pump(PumpCode.GET_FLUSHING, "?")
 
     def home(self):
         request = struct.pack(">B", CncCode.HOME)
@@ -321,31 +341,31 @@ class Sipper:
         self.z = 0.0
 
     def sip(self, well: str):
-        self.air_stop = False
         self.valve = "waste"
         if self.well:
             self.well = ""
             # Sip up an air bubble.
-            self.rpm = self._waste_rpm
+            self.rpm = self.flush_rpm
             time.sleep(3)
             # Move to the new well and lower sipper into liquid.
             self.rpm = 0
             self.well = well
-            self.rpm = self._waste_rpm
+            self.rpm = self.flush_rpm
             # Sip until the air bubble reaches the sensor.
             while not self.air:
                 time.sleep(0.01)
         else:
             self.well = well
-            self.rpm = self._waste_rpm
+            self.rpm = self.flush_rpm
             while self.air:
                 time.sleep(0.01)
 
+        # The MCU will autoflush now so wait until we're done flushing.
+        while self.flushing:
+            time.sleep(0.01)
         # Flush the air bubble through to waste.
-        time.sleep(self._flush_time)
         self.valve = "flow"
         self.rpm = self._sip_rpm
-        self.air_stop = True
 
     def _read_pump(self, assert_code: int, response_format: str = "") -> Any:
         return self._read(self._pump, assert_code, response_format)
