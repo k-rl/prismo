@@ -341,31 +341,20 @@ class Sipper:
         self.z = 0.0
 
     def sip(self, well: str):
+        # Move the sipper up.
+        self.well = ""
+        # Clear out the line of any liquid.
         self.valve = "waste"
-        if self.well:
-            self.well = ""
-            # Sip up an air bubble.
-            self.rpm = self.flush_rpm
-            time.sleep(3)
-            # Move to the new well and lower sipper into liquid.
-            self.rpm = 0
-            self.well = well
-            self.rpm = self.flush_rpm
-            # Sip until the air bubble reaches the sensor.
-            while not self.air:
-                time.sleep(0.01)
-        else:
-            self.well = well
-            self.rpm = self.flush_rpm
-            while self.air:
-                time.sleep(0.01)
-
-        # The MCU will autoflush now so wait until we're done flushing.
+        self.rpm = self.flush_rpm
+        while not self.air:
+            time.sleep(0.01)
+        # Move to the new well and sip liquid.
+        self.well = well
+        self.rpm = self._sip_rpm
+        self.valve = "flow"
+        # Wait until the MCU autoflushes until we get to this well's liquid.
         while self.flushing:
             time.sleep(0.01)
-        # Flush the air bubble through to waste.
-        self.valve = "flow"
-        self.rpm = self._sip_rpm
 
     def _read_pump(self, assert_code: int, response_format: str = "") -> Any:
         return self._read(self._pump, assert_code, response_format)
