@@ -8,7 +8,7 @@ class PacketStream:
     def __init__(self, device_id: int, timeout_s: int = 1):
         device_found = False
         for port in list_ports.comports():
-            if port.manufacturer is not None and "Espressif" in port.manufacturer:
+            if port.vid == 0x303A and port.pid == 0x1001:
                 self._socket = serial.Serial(port.device, baudrate=115200, timeout=timeout_s)
                 try:
                     self._socket.reset_input_buffer()
