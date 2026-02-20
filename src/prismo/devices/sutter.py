@@ -2,14 +2,25 @@ from typing import Literal
 
 from pymmcore import CMMCore
 
+from . import utils
+
+VID = 0x1342
+PID = 0x1003
+
 
 class Filter:
     def __init__(
-        self, name: str, core: CMMCore, filter: str, port: str, states: list[str] | None = None
+        self,
+        name: str,
+        core: CMMCore,
+        filter: str,
+        port: str | None = None,
+        states: list[str] | None = None,
     ):
         self.name = name
         self.states: list[int] | list[str]
         self._core = core
+        port = utils.load_port(core, vid=VID, pid=PID, port=port, timeout_ms=2000, baud_rate=12800)
         core.loadDevice(name, "SutterLambda", "Wheel-" + filter)
         core.setProperty(name, "Port", port)
         core.initializeDevice(name)
@@ -45,9 +56,10 @@ class Filter:
 
 
 class Shutter:
-    def __init__(self, name: str, core: CMMCore, shutter: str, port: str):
+    def __init__(self, name: str, core: CMMCore, shutter: str, port: str | None = None):
         self.name = name
         self._core = core
+        port = utils.load_port(core, vid=VID, pid=PID, port=port, timeout_ms=2000, baud_rate=12800)
         core.loadDevice(name, "SutterLambda", "Shutter-" + shutter)
         core.setProperty(name, "Port", port)
         core.initializeDevice(name)

@@ -2,13 +2,21 @@ from typing import Literal
 
 from pymmcore import CMMCore
 
+from . import utils
+
 
 class Light:
     def __init__(
-        self, name: str, core: CMMCore, port: str, version: Literal["sola", "spectra"] = "sola"
+        self,
+        name: str,
+        core: CMMCore,
+        port: str | None = None,
+        version: Literal["sola", "spectra"] = "sola",
     ):
         self.name = name
         self._core = core
+
+        port = utils.load_port(core, vid=0x0403, pid=0x6001, port=port)
         core.loadDevice(name, "LumencorSpectra", "Spectra")
         core.setProperty(name, "SetLE_Type", version.capitalize())
         core.setProperty(name, "Port", port)

@@ -18,56 +18,8 @@ def load(config: dict[str, dict[str, Any]], path: str | None = None) -> "Control
     core.setDeviceAdapterSearchPaths([path])
 
     devices = []
-    ports = {}
-    port_defaults = {
-        "AnswerTimeout": "500.0",
-        "BaudRate": "9600",
-        "DTR": "Disable",
-        "DataBits": "8",
-        "DelayBetweenCharsMs": "0.0",
-        "Fast USB to Serial": "Disable",
-        "Handshaking": "Off",
-        "Parity": "None",
-        "StopBits": "1",
-        "Verbose": "1",
-    }
-    for name, params in config.items():
-        device = params.get("device")
-        if device is None or device not in (
-            "asi_stage",
-            "asi_zstage",
-            "lambda_filter1",
-            "lambda_filter2",
-            "lambda_shutter1",
-            "lambda_shutter2",
-            "sola_light",
-            "spectra_light",
-        ):
-            continue
-        if "port" not in params:
-            raise ValueError(f"{name} requires a port to be specified.")
-
-        port = params["port"]
-        if device == "asi_stage" or device == "asi_zstage":
-            ports[port] = {**port_defaults, "AnswerTimeout": 2000.0}
-        elif device in ("lambda_filter1", "lambda_filter2", "lambda_shutter1", "lambda_shutter2"):
-            ports[port] = {**port_defaults, "AnswerTimeout": 2000.0, "BaudRate": 128000}
-        elif device == "sola_light" or device == "spectra_light":
-            ports[port] = dict(port_defaults)
-
-    for port, params in ports.items():
-        core.loadDevice(port, "SerialManager", port)
-        if port in config:
-            params.update(config[port])
-        for k, v in params.items():
-            core.setProperty(port, k, v)
-        core.initializeDevice(port)
-
     valves = None
     for name, params in config.items():
-        if name in ports:
-            continue
-
         # TODO: Pull out valves so config isn't order dependent.
         device = params.pop("device")
         match device:

@@ -1,11 +1,17 @@
 import numpy as np
 from pymmcore import CMMCore
 
+from . import utils
+
+VID = 0x10C4
+PID = 0xEA60
+
 
 class Stage:
-    def __init__(self, name: str, core: CMMCore, port: str):
+    def __init__(self, name: str, core: CMMCore, port: str | None = None):
         self.name = name
         self._core = core
+        port = utils.load_port(core, vid=VID, pid=PID, port=port, timeout_ms=2000)
         core.loadDevice(name, "ASIStage", "XYStage")
         core.setProperty(name, "Port", port)
         core.initializeDevice(name)
@@ -39,9 +45,10 @@ class Stage:
 
 
 class Focus:
-    def __init__(self, name: str, core: CMMCore, port: str):
+    def __init__(self, name: str, core: CMMCore, port: str | None = None):
         self.name = name
         self._core = core
+        port = utils.load_port(core, vid=VID, pid=PID, port=port)
         core.loadDevice(name, "ASIStage", "ZStage")
         core.setProperty(name, "Port", port)
         core.setProperty(name, "Axis", "Z")
