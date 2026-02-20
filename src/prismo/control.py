@@ -6,7 +6,7 @@ from pymmcore import CMMCore
 import prismo.devices as dev
 
 
-def load(config: dict[str, dict[str, Any]], path: str | None = None) -> "Control":
+def load(config: dict[str, dict[str, Any] | str], path: str | None = None) -> "Control":
     core = CMMCore()
     if path is None:
         if os.name == "nt":
@@ -21,7 +21,7 @@ def load(config: dict[str, dict[str, Any]], path: str | None = None) -> "Control
     valves = None
     for name, params in config.items():
         # TODO: Pull out valves so config isn't order dependent.
-        params = {"device": params} if isinstance(params, str) else params
+        params: dict[str, Any] = {"device": params} if isinstance(params, str) else params
         device = params.pop("device")
         match device:
             case "asi_stage":
