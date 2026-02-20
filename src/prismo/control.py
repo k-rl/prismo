@@ -78,11 +78,11 @@ def load(config: dict[str, dict[str, Any]], path: str | None = None) -> "Control
             case "bsi_camera":
                 devices.append(dev.bsi.Camera(name, core, **params))
             case "demo_camera":
-                devices.append(dev.demo.Camera(name, core))
+                devices.append(dev.demo.Camera(name))
             case "demo_filter":
-                devices.append(dev.demo.Filter(name, core, **params))
+                devices.append(dev.demo.Filter(name, **params))
             case "demo_stage":
-                devices.append(dev.demo.Stage(name, core))
+                devices.append(dev.demo.Stage(name))
             case "demo_valves":
                 devices.append(dev.demo.Valves(name, **params))
             case "fluidic_sipper":
