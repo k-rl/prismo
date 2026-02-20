@@ -21,6 +21,7 @@ def load(config: dict[str, dict[str, Any]], path: str | None = None) -> "Control
     valves = None
     for name, params in config.items():
         # TODO: Pull out valves so config isn't order dependent.
+        params = {"device": params} if isinstance(params, str) else params
         device = params.pop("device")
         match device:
             case "asi_stage":
@@ -60,8 +61,6 @@ def load(config: dict[str, dict[str, Any]], path: str | None = None) -> "Control
                 devices.append(dev.lumencor.Light(name, core, version="sola", **params))
             case "spectra_light":
                 devices.append(dev.lumencor.Light(name, core, version="spectra", **params))
-            case "thor_light":
-                devices.append(dev.thor.Light(name, **params))
             case "ti_filter1":
                 devices.append(dev.ti.Filter(name, core, filter=1, **params))
             case "ti_filter2":
