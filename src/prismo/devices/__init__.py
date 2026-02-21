@@ -12,6 +12,7 @@ __all__ = [
     "ti2",
     "zyla",
     "Camera",
+    "Close",
     "Focus",
     "Stage",
     "State",
@@ -34,4 +35,4 @@ from . import (
     ti2,
     zyla,
 )
-from .protocols import Camera, Focus, Stage, State, Valved, Wait, Zoom
+from .protocols import Camera, Close, Focus, Stage, State, Valved, Wait, Zoom

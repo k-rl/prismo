@@ -320,6 +320,9 @@ class Sipper:
         while self.flushing:
             time.sleep(0.01)
 
+    def close(self):
+        self._socket.close()
+
     def _read(self, assert_code: int, response_format: str = "") -> Any:
         response = self._socket.read()
         code = struct.unpack(">B", response[:1])[0]

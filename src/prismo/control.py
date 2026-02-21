@@ -6,8 +6,12 @@ from pymmcore import CMMCore
 
 import prismo.devices as dev
 
+control = None
 
-def load(config: dict[str, dict[str, Any] | str], path: str | None = None) -> "Control":
+
+def load(
+    config: dict[str, dict[str, Any] | str], path: str | None = None, singleton=True
+) -> "Control":
     core = CMMCore()
     if path is None:
         if os.name == "nt":
@@ -93,7 +97,15 @@ def load(config: dict[str, dict[str, Any] | str], path: str | None = None) -> "C
             case _:
                 raise ValueError(f"Device {device} is not recognized.")
 
-    return Control(core, devices=devices)
+    global control
+    if singleton:
+        # Make sure we close out the previous control before instantiating a new one.
+        if control is not None:
+            control.close()
+        control = Control(core, devices=devices)
+        return control
+    else:
+        return Control(core, devices=devices)
 
 
 class Control:
@@ -123,7 +135,7 @@ class Control:
                 self._focus = device
                 break
 
-        weakref.finalize(self, self._core.reset)
+        weakref.finalize(self, self.close)
 
     def wait(self):
         for device in self.devices:
@@ -232,3 +244,9 @@ class Control:
                 device.state = value
                 return
         super().__setattr__(name, value)
+
+    def close(self):
+        self._core.reset()
+        for device in self.devices:
+            if isinstance(device, dev.Close):
+                device.close()

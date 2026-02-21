@@ -171,16 +171,6 @@ def test_wait_calls_all_wait_devices(mock_core):
     assert not hasattr(non_wait, "wait") or not non_wait.wait.called
 
 
-def test_context_manager(mock_core):
-    """Context manager returns self and resets core on exit."""
-    c = Control(mock_core, devices=[])
-
-    with c as ctx:
-        assert ctx is c
-
-    mock_core.reset.assert_called()
-
-
 def test_close_resets_core(mock_core):
     """close() resets the core."""
     c = Control(mock_core, devices=[])

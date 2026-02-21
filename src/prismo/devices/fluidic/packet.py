@@ -25,7 +25,7 @@ class PacketStream:
             raise ConnectionError(f"Could not find device with id {device_id}.")
 
         # Make sure we close the socket when the object is garbage collected.
-        weakref.finalize(self, self._socket.close)
+        weakref.finalize(self, self.close)
 
     def write(self, request: Buffer):
         data = memoryview(request).cast("B")
@@ -77,3 +77,6 @@ class PacketStream:
         if len(out) < size:
             raise TimeoutError("Read timed out.")
         return out
+
+    def close(self):
+        self._socket.close()

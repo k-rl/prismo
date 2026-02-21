@@ -11,6 +11,11 @@ class Camera(Protocol):
 
 
 @runtime_checkable
+class Close(Protocol):
+    def close(self): ...
+
+
+@runtime_checkable
 class Focus(Protocol):
     z: float
 
