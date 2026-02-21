@@ -68,7 +68,7 @@ class TreeValves:
         driver: ValveDriver,
         zeros: list[int],
         ones: list[int],
-        states: dict[str, str] | list[str] | None = None,
+        states: dict[str, str],
     ):
         # Convert states to always be dicts.
         processed: dict[str | int, str]
@@ -86,8 +86,8 @@ class TreeValves:
         for v in processed.values():
             if len(v) != len(zeros):
                 raise ValueError(f"Invalid state {v}. States must be of length {len(zeros)}.")
-            elif not all(x in ["0", "1", "_", "x"] for x in v):
-                raise ValueError(f"Invalid state {v}. States must only contain 0, 1, _, and x.")
+            elif not all(x in ["0", "1", "o", "x"] for x in v):
+                raise ValueError(f"Invalid state {v}. States must only contain 0, 1, o, and x.")
 
         self._labels_to_states = processed
         self._states_to_labels = {value: key for key, value in processed.items()}
@@ -109,7 +109,7 @@ class TreeValves:
             state_str = ""
             for i in range(len(zeros_open)):
                 if zeros_open[i] and ones_open[i]:
-                    state_str += "_"
+                    state_str += "o"
                 elif zeros_open[i]:
                     state_str += "0"
                 elif ones_open[i]:
@@ -136,7 +136,7 @@ class TreeValves:
                 self._driver[v] = "closed"
 
             for i, c in enumerate(new_state):
-                if c == "_":
+                if c == "o":
                     self._driver[self._zeros[i]] = "open"
                     self._driver[self._ones[i]] = "open"
                 elif c == "1":
@@ -144,23 +144,27 @@ class TreeValves:
                 elif c == "0":
                     self._driver[self._zeros[i]] = "open"
 
+    def __repr__(self) -> str:
+        return str(self.state)
+
 
 class Chip:
     def __init__(
         self,
         name: str,
         driver: ValveDriver,
-        mapping: dict[
-            str, dict[Literal["states", 0, 1], list[str] | dict[str, str]] | list[int] | int
-        ],
+        mapping: dict[str, dict[str | Literal[0, 1], list[int] | str] | list[int] | int],
     ):
-        processed: dict[str, TreeValves | Valves]
-        processed = {
-            k: TreeValves(zeros=v[0], ones=v[1], states=v.get("states"), driver=driver)
-            if isinstance(v, dict)
-            else Valves(valves=v, driver=driver)
-            for k, v in mapping.items()
-        }
+        processed: dict[str, TreeValves | Valves] = {}
+        for k, v in mapping.items():
+            if isinstance(v, dict):
+                zeros = v.pop(0)
+                ones = v.pop(1)
+                if not isinstance(zeros, list) or not isinstance(ones, list):
+                    raise ValueError("0 and 1 should be a list of integers in tree mapping.")
+                processed[k] = TreeValves(zeros=zeros, ones=ones, states=v, driver=driver)
+            else:
+                processed[k] = Valves(valves=v, driver=driver)
         # We can't directly set self._mapping = mapping since our overriden __setattr__
         # depends on self._mapping being set. Same for name and _driver.
         super().__setattr__("_mapping", processed)
