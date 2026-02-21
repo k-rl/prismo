@@ -81,7 +81,7 @@ class TreeValves:
         # Make sure we have all states where one path is open.
         for i in range(2 ** len(zeros)):
             if i not in processed:
-                processed[i] = f"{i:b}"
+                processed[i] = f"{i:0{len(zeros)}b}"
         # Check validity of state dict values.
         for v in processed.values():
             if len(v) != len(zeros):
