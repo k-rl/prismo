@@ -59,8 +59,8 @@ def normalize_zooms(
     if zooms is None:
         zooms = []
         for state in states:
-            if isinstance(state, str) and (m := re.search(r"\d+", state)):
-                zooms.append(int(m[0]))
+            if isinstance(state, str) and (m := re.match(r"(\d+)[xX]", state)):
+                zooms.append(int(m[1]))
             else:
                 zooms.append(1)
 
