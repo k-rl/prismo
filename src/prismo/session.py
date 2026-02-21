@@ -1,5 +1,6 @@
 import threading
 import warnings
+import weakref
 from collections.abc import Callable, Iterator
 from typing import Any
 
@@ -89,6 +90,9 @@ class Session:
         self._pipe, child_pipe = ctx.Pipe()
         self._view_process = ctx.Process(target=run_view, args=(child_pipe,))
         self._router = threading.Thread(target=run_router, args=(self._pipe, self._quit))
+
+        # Make sure to exit the view process when this session is garbage collected.
+        weakref.finalize(self, self.quit)
 
     def start(self):
         if self._view_process is not None:
@@ -199,6 +203,3 @@ class Session:
         with self._array_lock:
             arrs = dict(self._arrays)
         return arrs
-
-    def __del__(self):
-        self.quit()

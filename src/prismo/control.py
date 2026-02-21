@@ -1,5 +1,6 @@
 import os
-from typing import Any, Self
+import weakref
+from typing import Any
 
 from pymmcore import CMMCore
 
@@ -122,6 +123,8 @@ class Control:
                 self._focus = device
                 break
 
+        weakref.finalize(self, self._core.reset)
+
     def wait(self):
         for device in self.devices:
             if isinstance(device, dev.Wait):
@@ -229,15 +232,3 @@ class Control:
                 device.state = value
                 return
         super().__setattr__(name, value)
-
-    def close(self):
-        self._core.reset()
-
-    def __enter__(self) -> Self:
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self._core.reset()
-
-    def __del__(self):
-        self._core.reset()

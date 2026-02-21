@@ -1,3 +1,4 @@
+import weakref
 from collections.abc import Buffer
 
 import serial
@@ -22,6 +23,9 @@ class PacketStream:
                 self._socket.close()
         if not device_found:
             raise ConnectionError(f"Could not find device with id {device_id}.")
+
+        # Make sure we close the socket when the object is garbage collected.
+        weakref.finalize(self, self._socket.close)
 
     def write(self, request: Buffer):
         data = memoryview(request).cast("B")
