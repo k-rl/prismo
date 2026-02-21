@@ -5,7 +5,6 @@ import numpy as np
 import pymodbus.client
 
 from .. import utils
-from .protocols import State
 
 
 class ValveDriver:
@@ -155,6 +154,8 @@ class Chip:
         driver: ValveDriver,
         mapping: dict[str, dict[str | Literal[0, 1], list[int] | str] | list[int] | int],
     ):
+        self.name = name
+        self._mapping: dict[str, TreeValves | Valves] = {}
         processed: dict[str, TreeValves | Valves] = {}
         for k, v in mapping.items():
             if isinstance(v, dict):
@@ -166,21 +167,19 @@ class Chip:
             else:
                 processed[k] = Valves(valves=v, driver=driver)
         # We can't directly set self._mapping = mapping since our overriden __setattr__
-        # depends on self._mapping being set. Same for name and _driver.
+        # depends on self._mapping being set.
         super().__setattr__("_mapping", processed)
-        super().__setattr__("name", name)
-        super().__setattr__("_driver", driver)
 
-    def __getattr__(self, key: str) -> Literal["closed", "open"] | Valves:
+    def __getattr__(self, key: str) -> str | int | Valves:
         v = self._mapping[key]
-        if isinstance(v, State):
+        if not isinstance(v, Valves):
             return v.state
         else:
             return v
 
-    def __setattr__(self, key: str, state: Literal["closed", "open"]):
+    def __setattr__(self, key: str, state: str | int):
         v = self._mapping[key]
-        if isinstance(v, State):
+        if not isinstance(v, Valves):
             v.state = state
         else:
             for i in range(len(v)):
