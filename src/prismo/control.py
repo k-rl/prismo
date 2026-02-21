@@ -10,8 +10,13 @@ control = None
 
 
 def load(
-    config: dict[str, dict[str, Any] | str], path: str | None = None, singleton=True
+    config: dict[str, dict[str, Any] | str], path: str | None = None, singleton: bool = True
 ) -> "Control":
+    # Make sure we close out the previous control before instantiating a new one.
+    global control
+    if singleton and control is not None:
+        control.close()
+
     core = CMMCore()
     if path is None:
         if os.name == "nt":
@@ -97,11 +102,7 @@ def load(
             case _:
                 raise ValueError(f"Device {device} is not recognized.")
 
-    global control
     if singleton:
-        # Make sure we close out the previous control before instantiating a new one.
-        if control is not None:
-            control.close()
         control = Control(core, devices=devices)
         return control
     else:
