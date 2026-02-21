@@ -1,5 +1,7 @@
 from pymmcore import CMMCore
 
+from . import utils
+
 
 class Filter:
     def __init__(self, name: str, core: CMMCore, filter: int, states: list[str] | None = None):
@@ -107,7 +109,7 @@ class Objective:
                 )
             for i, state in enumerate(self.states):
                 self._core.defineStateLabel(name, i, state)
-        self.zooms = {state: zoom for state, zoom in zip(self.states, zooms, strict=True)}
+        self.zooms = utils.normalize_zooms(self.states, zooms)
 
     def wait(self):
         self._core.waitForDevice(self.name)

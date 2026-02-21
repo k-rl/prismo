@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 
 from pymmcore import CMMCore
@@ -50,3 +51,17 @@ def load_port(
         core.initializeDevice(port)
 
     return port
+
+
+def normalize_zooms(
+    states: list[str] | list[int], zooms: list[float] | None = None
+) -> dict[str | int, float]:
+    if zooms is None:
+        zooms = []
+        for state in states:
+            if isinstance(state, str) and (m := re.search(r"\d+", state)):
+                zooms.append(int(m[0]))
+            else:
+                zooms.append(1)
+
+    return {state: zoom for state, zoom in zip(states, zooms, strict=True)}
