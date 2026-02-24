@@ -264,27 +264,29 @@ class ValveController(QWidget):
     def button_stylesheet(self, state: str | int) -> str:
         if state == "closed":
             return (
-                "background-color: #b0acaa;"
+                "background-color: #909090;"
+                "color: #1a1a1a;"
                 "border-style: inset;"
-                "border-width: 2px;"
-                "border-top-color: #606060;"
-                "border-left-color: #606060;"
-                "border-right-color: #f0ece8;"
-                "border-bottom-color: #f0ece8;"
-                "padding: 3px 2px 1px 4px;"
+                "border-width: 3px;"
+                "border-top-color: #404040;"
+                "border-left-color: #404040;"
+                "border-right-color: #f0f0f0;"
+                "border-bottom-color: #f0f0f0;"
+                "padding: 4px 2px 0px 4px;"
                 "margin: 0.5px;"
                 "border-radius: 0px;"
             )
         else:
             return (
-                "background-color: #d4d0cc;"
+                "background-color: #e8e4e0;"
+                "color: #1a1a1a;"
                 "border-style: outset;"
-                "border-width: 2px;"
-                "border-top-color: #f0ece8;"
-                "border-left-color: #f0ece8;"
-                "border-right-color: #606060;"
-                "border-bottom-color: #606060;"
-                "padding: 1px 4px 3px 2px;"
+                "border-width: 3px;"
+                "border-top-color: #ffffff;"
+                "border-left-color: #ffffff;"
+                "border-right-color: #404040;"
+                "border-bottom-color: #404040;"
+                "padding: 0px 4px 4px 2px;"
                 "margin: 0.5px;"
                 "border-radius: 0px;"
             )
