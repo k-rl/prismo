@@ -262,33 +262,29 @@ class ValveController(QWidget):
         self._relay.post("set_valve", key, state)
 
     def button_stylesheet(self, state: str | int) -> str:
+        common = (
+            "color: #f0f0f0;"
+            + "border-style: solid;"
+            + "border-width: 1px;"
+            + "border-radius: 3px;"
+            + "padding: 3px 5px;"
+            + "margin: 1px;"
+        )
         if state == "closed":
-            return (
-                "background-color: #909090;"
-                "color: #1a1a1a;"
-                "border-style: inset;"
-                "border-width: 3px;"
-                "border-top-color: #404040;"
-                "border-left-color: #404040;"
-                "border-right-color: #f0f0f0;"
-                "border-bottom-color: #f0f0f0;"
-                "padding: 4px 2px 0px 4px;"
-                "margin: 0.5px;"
-                "border-radius: 0px;"
+            return common + (
+                "background-color: #2e3d4f;"
+                + "border-top-color: #1c2a38;"
+                + "border-left-color: #1c2a38;"
+                + "border-right-color: #4a6888;"
+                + "border-bottom-color: #4a6888;"
             )
         else:
-            return (
-                "background-color: #e8e4e0;"
-                "color: #1a1a1a;"
-                "border-style: outset;"
-                "border-width: 3px;"
-                "border-top-color: #ffffff;"
-                "border-left-color: #ffffff;"
-                "border-right-color: #404040;"
-                "border-bottom-color: #404040;"
-                "padding: 0px 4px 4px 2px;"
-                "margin: 0.5px;"
-                "border-radius: 0px;"
+            return common + (
+                "background-color: #3d4149;"
+                + "border-top-color: #585e6a;"
+                + "border-left-color: #585e6a;"
+                + "border-right-color: #1e2025;"
+                + "border-bottom-color: #1e2025;"
             )
 
 
