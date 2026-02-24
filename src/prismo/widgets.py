@@ -262,30 +262,25 @@ class ValveController(QWidget):
         self._relay.post("set_valve", key, state)
 
     def button_stylesheet(self, state: str | int) -> str:
-        common = (
-            "color: #f0f0f0;"
-            + "border-style: solid;"
-            + "border-width: 1px;"
-            + "border-radius: 3px;"
-            + "padding: 3px 5px;"
-            + "margin: 1px;"
-        )
         if state == "closed":
-            return common + (
-                "background-color: #2e3d4f;"
-                + "border-top-color: #1c2a38;"
-                + "border-left-color: #1c2a38;"
-                + "border-right-color: #4a6888;"
-                + "border-bottom-color: #4a6888;"
-            )
+            bg =       "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1e3045, stop:1 #2a4060)"
+            bg_hover = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #243850, stop:1 #305070)"
+            border_tl, border_br = "#162335", "#3d6080"
         else:
-            return common + (
-                "background-color: #3d4149;"
-                + "border-top-color: #585e6a;"
-                + "border-left-color: #585e6a;"
-                + "border-right-color: #1e2025;"
-                + "border-bottom-color: #1e2025;"
-            )
+            bg =       "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a4f5c, stop:1 #30343c)"
+            bg_hover = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #545966, stop:1 #3a3e47)"
+            border_tl, border_br = "#5a606e", "#1a1d22"
+        return (
+            f"QPushButton {{"
+            f" color: #f0f0f0;"
+            f" background-color: {bg};"
+            f" border-style: solid; border-width: 1px; border-radius: 3px;"
+            f" border-top-color: {border_tl}; border-left-color: {border_tl};"
+            f" border-right-color: {border_br}; border-bottom-color: {border_br};"
+            f" padding: 3px 5px; margin: 1px;"
+            f"}}"
+            f"QPushButton:hover {{ background-color: {bg_hover}; }}"
+        )
 
 
 class ValveControllerServer:
