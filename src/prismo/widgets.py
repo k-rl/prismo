@@ -216,6 +216,8 @@ class ValveController(QWidget):
             states = self._valve_states[k]
             if set(states) == {"open", "closed"}:
                 btn = QPushButton(str(k))
+                btn.setCheckable(True)
+                btn.setChecked(v == "open")
                 btn.setStyleSheet(self.button_stylesheet(v))
                 btn.setMinimumWidth(10)
                 btn.clicked.connect(functools.partial(self.toggle_valve, k))
