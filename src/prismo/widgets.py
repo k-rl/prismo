@@ -22,8 +22,8 @@ from .session import Relay
 
 def init_widgets(
     ctrl: "Control",
-) -> tuple[dict[str, Callable[["Relay"], "ValveController"]], dict[str, Callable[..., Any]]]:
-    widgets: dict[str, Callable[[Relay], ValveController]] = {}
+) -> tuple[dict[str, Callable[["Relay"], QWidget]], dict[str, Callable[..., Any]]]:
+    widgets: dict[str, Callable[[Relay], QWidget]] = {}
     routes: dict[str, Callable[..., Any]] = {}
 
     for device in ctrl.devices:
@@ -35,6 +35,13 @@ def init_widgets(
             )
             server = ValveControllerServer(device)
             routes = {**routes, **server.routes(path)}
+
+    state_devices = [d for d in ctrl.devices if isinstance(d, devices.State)]
+    if state_devices:
+        path = "widget/states"
+        widgets["state controller"] = lambda r, path=path: StateController(r.subpath(path))
+        server = StateControllerServer(state_devices)
+        routes = {**routes, **server.routes(path)}
 
     return widgets, routes
 
@@ -192,6 +199,65 @@ class PositionSelector(QWidget):
         if valid:
             self.close()
             self._next_step(xys)
+
+
+class StateController(QWidget):
+    def __init__(self, relay: "Relay"):
+        super().__init__()
+        self._relay = relay
+        self._states: dict[str, str | int | float] = self._relay.get("states")
+        self._options: dict[str, list[str | int | float]] = self._relay.get("options")
+        self._combos: dict[str, QComboBox] = {}
+        layout = QVBoxLayout(self)
+        self._timer = QTimer()
+        self._timer.timeout.connect(self.update_states)
+        self._timer.start(100)
+
+        for name, state in self._states.items():
+            row = QHBoxLayout()
+            row.addWidget(QLabel(name))
+            combo = QComboBox()
+            for opt in self._options[name]:
+                combo.addItem(str(opt))
+            combo.setCurrentText(str(state))
+            combo.currentTextChanged.connect(functools.partial(self.set_state, name))
+            row.addWidget(combo)
+            layout.addLayout(row)
+            self._combos[name] = combo
+
+    def update_states(self):
+        self._states = self._relay.get("states")
+        for name, state in self._states.items():
+            combo = self._combos[name]
+            combo.blockSignals(True)
+            combo.setCurrentText(str(state))
+            combo.blockSignals(False)
+
+    def set_state(self, name: str, state_str: str):
+        options = self._options[name]
+        state: str | int | float = next((s for s in options if str(s) == state_str), state_str)
+        self._relay.post("set_state", name, state)
+
+
+class StateControllerServer:
+    def __init__(self, state_devices: list[devices.State]):
+        self._devices = {d.name: d for d in state_devices}
+
+    def routes(self, path: str) -> dict[str, Callable[..., Any]]:
+        return {
+            path + "/states": self.get_states,
+            path + "/options": self.get_options,
+            path + "/set_state": self.set_state,
+        }
+
+    def get_states(self) -> dict[str, str | int | float]:
+        return {name: d.state for name, d in self._devices.items()}
+
+    def get_options(self) -> dict[str, list[str | int | float]]:
+        return {name: d.states for name, d in self._devices.items()}
+
+    def set_state(self, name: str, state: str | int | float):
+        self._devices[name].state = state
 
 
 class ValveController(QWidget):

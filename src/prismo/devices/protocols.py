@@ -29,7 +29,9 @@ class Stage(Protocol):
 
 @runtime_checkable
 class State(Protocol):
+    name: str
     state: str | int | float
+    states: list[str | int | float]
 
 
 @runtime_checkable

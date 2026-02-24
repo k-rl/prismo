@@ -137,6 +137,8 @@ class Objective:
 
 
 class Shutter:
+    states: list[str | int | float] = ["open", "closed"]
+
     def __init__(self, name: str, core: CMMCore, shutter: int):
         self.name = name
         self._core = core
@@ -168,6 +170,8 @@ class Shutter:
 
 
 class OverheadLight:
+    states: list[str | int | float] = ["open", "closed"]
+
     def __init__(self, name: str, core: CMMCore):
         self.name = name
         self._core = core

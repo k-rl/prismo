@@ -56,6 +56,8 @@ class Filter:
 
 
 class Shutter:
+    states: list[str | int | float] = ["open", "closed"]
+
     def __init__(self, name: str, core: CMMCore, shutter: str, port: str | None = None):
         self.name = name
         self._core = core
