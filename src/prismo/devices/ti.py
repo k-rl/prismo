@@ -32,10 +32,14 @@ class Filter:
 
     @property
     def state(self) -> int | str:
-        if isinstance(self.states[0], int):
-            return self._core.getState(self.name)
-        else:
-            return self._core.getStateLabel(self.name)
+        try:
+            if isinstance(self.states[0], int):
+                return self._core.getState(self.name)
+            else:
+                return self._core.getStateLabel(self.name)
+        except Exception:
+            self.state = self.states[0]
+            return self.states[0]
 
     @state.setter
     def state(self, new_state: int | str):
@@ -116,10 +120,14 @@ class Objective:
 
     @property
     def state(self) -> int | str:
-        if isinstance(self.states[0], int):
-            return self._core.getState(self.name)
-        else:
-            return self._core.getStateLabel(self.name)
+        try:
+            if isinstance(self.states[0], int):
+                return self._core.getState(self.name)
+            else:
+                return self._core.getStateLabel(self.name)
+        except Exception:
+            self.state = self.states[0]
+            return self.states[0]
 
     @state.setter
     def state(self, new_state: int | str):

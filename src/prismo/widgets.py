@@ -211,7 +211,7 @@ class StateController(QWidget):
         layout = QVBoxLayout(self)
         self._timer = QTimer()
         self._timer.timeout.connect(self.update_states)
-        self._timer.start(100)
+        self._timer.start(10)
 
         for name, state in self._states.items():
             row = QHBoxLayout()
@@ -268,11 +268,11 @@ class ValveController(QWidget):
         self._valve_states: dict[str, list[str | int]] = self._relay.get("valve_states")
         self._valve_widgets: dict[str, QPushButton | QComboBox] = {}
         self._btns: list[QPushButton] = []
-        self.setMaximumHeight(150)
+        self.setMaximumHeight(300)
         outer = QVBoxLayout(self)
         self._timer = QTimer()
         self._timer.timeout.connect(self.update_valves)
-        self._timer.start(100)
+        self._timer.start(10)
 
         self._btn_grid = QGridLayout()
         self._btn_grid.setHorizontalSpacing(0)
