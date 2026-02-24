@@ -249,12 +249,11 @@ class ValveController(QWidget):
                 widget.setCurrentText(str(v))
                 widget.blockSignals(False)
 
-    def toggle_valve(self, key: str):
-        v = self._valves[key] != "closed"
-        next_state: str | int = "open" if v else "closed"
-        self._valves[key] = next_state
-        self._relay.post("set_valve", key, next_state)
-        self._valve_widgets[key].setStyleSheet(self.button_stylesheet(next_state))
+    def toggle_valve(self, key: str, checked: bool):
+        state: str | int = "open" if checked else "closed"
+        self._valves[key] = state
+        self._relay.post("set_valve", key, state)
+        self._valve_widgets[key].setStyleSheet(self.button_stylesheet(state))
 
     def set_valve(self, key: str, state_str: str):
         states = self._valve_states[key]
