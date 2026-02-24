@@ -224,8 +224,9 @@ class Chip:
                 result[k] = v.state
             else:
                 result[k] = "closed" if v == "closed" else "open"
-                for i in range(len(v)):
-                    result[f"{k}[{i}]"] = v[i]
+                if len(v) > 1:
+                    for i in range(len(v)):
+                        result[f"{k}[{i}]"] = v[i]
         return result
 
     @property
@@ -238,6 +239,7 @@ class Chip:
                 result[k] = states
             else:
                 result[k] = ["closed", "open"]
-                for i in range(len(v)):
-                    result[f"{k}[{i}]"] = ["closed", "open"]
+                if len(v) > 1:
+                    for i in range(len(v)):
+                        result[f"{k}[{i}]"] = ["closed", "open"]
         return result

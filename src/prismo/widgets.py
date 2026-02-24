@@ -201,16 +201,16 @@ class ValveController(QWidget):
         self._valves: dict[str, str | int] = self._relay.get("valves")
         self._valve_states: dict[str, list[str | int]] = self._relay.get("valve_states")
         self._valve_widgets: dict[str, QPushButton | QComboBox] = {}
+        self._btns: list[QPushButton] = []
         self.setMaximumHeight(150)
         outer = QVBoxLayout(self)
         self._timer = QTimer()
         self._timer.timeout.connect(self.update_valves)
         self._timer.start(100)
 
-        btn_grid = QGridLayout()
-        btn_grid.setHorizontalSpacing(0)
-        btn_grid.setVerticalSpacing(0)
-        btn_index = 0
+        self._btn_grid = QGridLayout()
+        self._btn_grid.setHorizontalSpacing(0)
+        self._btn_grid.setVerticalSpacing(0)
 
         for k, v in self._valves.items():
             states = self._valve_states[k]
@@ -221,8 +221,7 @@ class ValveController(QWidget):
                 btn.setStyleSheet(self.button_stylesheet(v))
                 btn.setMinimumWidth(10)
                 btn.clicked.connect(functools.partial(self.toggle_valve, k))
-                btn_grid.addWidget(btn, btn_index // 8, btn_index % 8)
-                btn_index += 1
+                self._btns.append(btn)
                 self._valve_widgets[k] = btn
             else:
                 row = QHBoxLayout()
@@ -236,7 +235,8 @@ class ValveController(QWidget):
                 outer.insertLayout(0, row)
                 self._valve_widgets[k] = combo
 
-        outer.addLayout(btn_grid)
+        outer.addLayout(self._btn_grid)
+        self._relayout_buttons()
 
     def update_valves(self):
         self._valves = self._relay.get("valves")
@@ -248,6 +248,21 @@ class ValveController(QWidget):
                 widget.blockSignals(True)
                 widget.setCurrentText(str(v))
                 widget.blockSignals(False)
+
+    def _relayout_buttons(self):
+        if not self._btns:
+            return
+        btn_width = max(btn.sizeHint().width() for btn in self._btns)
+        btn_width = max(btn_width, 40)
+        cols = max(1, self.width() // btn_width)
+        while self._btn_grid.count():
+            self._btn_grid.takeAt(0)
+        for i, btn in enumerate(self._btns):
+            self._btn_grid.addWidget(btn, i // cols, i % cols)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._relayout_buttons()
 
     def toggle_valve(self, key: str, checked: bool):
         state: str | int = "open" if checked else "closed"
