@@ -34,7 +34,11 @@ class State(Protocol):
 
 @runtime_checkable
 class Valved(Protocol):
-    valves: float
+    name: str
+    valves: dict[str, str | int]
+    valve_states: dict[str, list[str | int]]
+
+    def __setitem__(self, key: str, state: str | int): ...
 
 
 @runtime_checkable

@@ -20,7 +20,9 @@ class ValveDriver:
         addr = idx + 512
         return "open" if self._client.read_coils(addr).bits[0] else "closed"
 
-    def __setitem__(self, idx: int, state: Literal["closed", "open"]):
+    def __setitem__(self, idx: int | str, state: Literal["closed", "open"]):
+        if isinstance(idx, str):
+            idx = int(idx)
         if idx < 0 or idx >= self._num_valves:
             raise IndexError(f"Invalid valve index {idx}.")
         self._client.write_coil(idx, state == "open")
@@ -31,6 +33,14 @@ class ValveDriver:
     def __iter__(self) -> Iterator[Literal["closed", "open"]]:
         for v in range(self._num_valves):
             yield self[v]
+
+    @property
+    def valves(self) -> dict[str, str | int]:
+        return {str(i): self[i] for i in range(self._num_valves)}
+
+    @property
+    def valve_states(self) -> dict[str, list[str | int]]:
+        return {str(i): ["open", "closed"] for i in range(self._num_valves)}
 
 
 class Valves:
@@ -200,6 +210,24 @@ class Chip:
             self[v] = "open"
 
     @property
-    def valves(self) -> dict[str, Literal["closed", "open"]]:
-        # TODO: This is wrong.
-        return {k: self[k] for k in self._mapping}
+    def valves(self) -> dict[str, str | int]:
+        result: dict[str, str | int] = {}
+        for k, v in self._mapping.items():
+            if isinstance(v, TreeValves):
+                result[k] = v.state
+            else:
+                result[k] = "closed" if v == "closed" else "open"
+        return result
+
+    @property
+    def valve_states(self) -> dict[str, list[str | int]]:
+        result: dict[str, list[str | int]] = {}
+        for k, v in self._mapping.items():
+            if isinstance(v, TreeValves):
+                states: list[str | int] = ["closed"]
+                states.extend(v._labels_to_states.keys())
+                states.append("open")
+                result[k] = states
+            else:
+                result[k] = ["open", "closed"]
+        return result

@@ -5,6 +5,7 @@ from typing import Any
 from qtpy.QtCore import Qt, QTimer
 from qtpy.QtGui import QDoubleValidator
 from qtpy.QtWidgets import (
+    QComboBox,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -197,38 +198,71 @@ class ValveController(QWidget):
     def __init__(self, relay: "Relay"):
         super().__init__()
         self._relay = relay
-        self._valves: dict[int, bool] = self._relay.get("valves")
-        self._valve_btns: dict[int, QPushButton] = {}
+        self._valves: dict[str, str | int] = self._relay.get("valves")
+        self._valve_states: dict[str, list[str | int]] = self._relay.get("valve_states")
+        self._valve_widgets: dict[str, QPushButton | QComboBox] = {}
         self.setMaximumHeight(150)
-        layout = QGridLayout(self)
-        layout.setHorizontalSpacing(0)
-        layout.setVerticalSpacing(0)
+        outer = QVBoxLayout(self)
         self._timer = QTimer()
         self._timer.timeout.connect(self.update_valves)
         self._timer.start(100)
 
-        for i, (k, v) in enumerate(self._valves.items()):
-            btn = QPushButton(str(k))
-            btn.setStyleSheet(self.button_stylesheet(v))
-            btn.setMinimumWidth(10)
-            btn.clicked.connect(functools.partial(self.toggle_valve, k))
-            layout.addWidget(btn, i // 8, i % 8)
-            self._valve_btns[k] = btn
+        btn_grid = QGridLayout()
+        btn_grid.setHorizontalSpacing(0)
+        btn_grid.setVerticalSpacing(0)
+        btn_index = 0
+
+        for k, v in self._valves.items():
+            states = self._valve_states[k]
+            if set(states) == {"open", "closed"}:
+                btn = QPushButton(str(k))
+                btn.setStyleSheet(self.button_stylesheet(v))
+                btn.setMinimumWidth(10)
+                btn.clicked.connect(functools.partial(self.toggle_valve, k))
+                btn_grid.addWidget(btn, btn_index // 8, btn_index % 8)
+                btn_index += 1
+                self._valve_widgets[k] = btn
+            else:
+                row = QHBoxLayout()
+                row.addWidget(QLabel(str(k)))
+                combo = QComboBox()
+                for state in states:
+                    combo.addItem(str(state))
+                combo.setCurrentText(str(v))
+                combo.currentTextChanged.connect(functools.partial(self.set_valve, k))
+                row.addWidget(combo)
+                outer.insertLayout(0, row)
+                self._valve_widgets[k] = combo
+
+        outer.addLayout(btn_grid)
 
     def update_valves(self):
         self._valves = self._relay.get("valves")
         for k, v in self._valves.items():
-            self._valve_btns[k].setStyleSheet(self.button_stylesheet(v))
+            widget = self._valve_widgets[k]
+            if isinstance(widget, QPushButton):
+                widget.setStyleSheet(self.button_stylesheet(v))
+            else:
+                widget.blockSignals(True)
+                widget.setCurrentText(str(v))
+                widget.blockSignals(False)
 
-    def toggle_valve(self, key: int):
-        v = not self._valves[key]
-        self._valves[key] = v
-        self._relay.post("set_valve", key, v)
-        self._valve_btns[key].setStyleSheet(self.button_stylesheet(v))
+    def toggle_valve(self, key: str):
+        v = self._valves[key] != "closed"
+        next_state: str | int = "open" if v else "closed"
+        self._valves[key] = next_state
+        self._relay.post("set_valve", key, next_state)
+        self._valve_widgets[key].setStyleSheet(self.button_stylesheet(next_state))
 
-    def button_stylesheet(self, is_green: bool) -> str:
+    def set_valve(self, key: str, state_str: str):
+        states = self._valve_states[key]
+        state: str | int = next((s for s in states if str(s) == state_str), state_str)
+        self._valves[key] = state
+        self._relay.post("set_valve", key, state)
+
+    def button_stylesheet(self, state: str | int) -> str:
         return (
-            f"background-color: {'green' if is_green else 'red'};"
+            f"background-color: {'green' if state == 'closed' else 'red'};"
             + "margin: 0.5px;"
             + "border-radius: 0px;"
         )
@@ -239,10 +273,17 @@ class ValveControllerServer:
         self._valves = valves
 
     def routes(self, path: str) -> dict[str, Callable[..., Any]]:
-        return {path + "/valves": self.get_valves, path + "/set_valve": self.set_valve}
+        return {
+            path + "/valves": self.get_valves,
+            path + "/valve_states": self.get_valve_states,
+            path + "/set_valve": self.set_valve,
+        }
 
-    def get_valves(self) -> dict[int, bool]:
-        return {k: v == "closed" for k, v in self._valves.valves.items()}
+    def get_valves(self) -> dict[str, str | int]:
+        return self._valves.valves
 
-    def set_valve(self, idx: int, value: bool):
-        self._valves[idx] = "closed" if value else "open"
+    def get_valve_states(self) -> dict[str, list[str | int]]:
+        return self._valves.valve_states
+
+    def set_valve(self, key: str, state: str | int):
+        self._valves[key] = state
