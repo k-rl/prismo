@@ -43,6 +43,12 @@ def init_widgets(
         server = StateControllerServer(state_devices)
         routes = {**routes, **server.routes(path)}
 
+    if ctrl.stage is not None:
+        path = "widget/stage"
+        widgets["stage controller"] = lambda r, path=path: StageController(r.subpath(path))
+        server = StageControllerServer(ctrl.stage)
+        routes = {**routes, **server.routes(path)}
+
     return widgets, routes
 
 
@@ -258,6 +264,102 @@ class StateControllerServer:
 
     def set_state(self, name: str, state: str | int | float):
         self._devices[name].state = state
+
+
+class StageController(QWidget):
+    def __init__(self, relay: "Relay"):
+        super().__init__()
+        self._relay = relay
+        self._fast = False
+        self._step_slow = 5.0
+        self._step_fast = 50.0
+
+        layout = QVBoxLayout(self)
+
+        pos_layout = QHBoxLayout()
+        self._x_label = QLabel("x: ---")
+        self._y_label = QLabel("y: ---")
+        pos_layout.addWidget(self._x_label)
+        pos_layout.addStretch()
+        pos_layout.addWidget(self._y_label)
+        layout.addLayout(pos_layout)
+
+        btn_grid = QGridLayout()
+        btn_grid.setSpacing(2)
+        up_btn = QPushButton("↑")
+        down_btn = QPushButton("↓")
+        left_btn = QPushButton("←")
+        right_btn = QPushButton("→")
+        for btn in [up_btn, down_btn, left_btn, right_btn]:
+            btn.setFixedSize(40, 40)
+        btn_grid.addWidget(up_btn, 0, 1)
+        btn_grid.addWidget(left_btn, 1, 0)
+        btn_grid.addWidget(right_btn, 1, 2)
+        btn_grid.addWidget(down_btn, 2, 1)
+        layout.addLayout(btn_grid)
+
+        self._speed_btn = QPushButton("Slow")
+        self._speed_btn.setCheckable(True)
+        layout.addWidget(self._speed_btn)
+
+        up_btn.clicked.connect(lambda: self._step(0, self._step_size))
+        down_btn.clicked.connect(lambda: self._step(0, -self._step_size))
+        left_btn.clicked.connect(lambda: self._step(-self._step_size, 0))
+        right_btn.clicked.connect(lambda: self._step(self._step_size, 0))
+        self._speed_btn.toggled.connect(self._toggle_speed)
+
+        self._timer = QTimer()
+        self._timer.timeout.connect(self._update_pos)
+        self._timer.start(100)
+
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    @property
+    def _step_size(self) -> float:
+        return self._step_fast if self._fast else self._step_slow
+
+    def _step(self, dx: float, dy: float):
+        self._relay.post("step_xy", dx, dy)
+
+    def _toggle_speed(self, checked: bool):
+        self._fast = checked
+        self._speed_btn.setText("Fast" if checked else "Slow")
+
+    def _update_pos(self):
+        xy = self._relay.get("xy")
+        self._x_label.setText(f"x: {xy[0]:.1f}")
+        self._y_label.setText(f"y: {xy[1]:.1f}")
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if key == Qt.Key_Up:
+            self._step(0, self._step_size)
+        elif key == Qt.Key_Down:
+            self._step(0, -self._step_size)
+        elif key == Qt.Key_Left:
+            self._step(-self._step_size, 0)
+        elif key == Qt.Key_Right:
+            self._step(self._step_size, 0)
+        else:
+            super().keyPressEvent(event)
+
+
+class StageControllerServer:
+    def __init__(self, stage: devices.Stage):
+        self._stage = stage
+
+    def routes(self, path: str) -> dict[str, Callable[..., Any]]:
+        return {
+            path + "/xy": self.get_xy,
+            path + "/step_xy": self.step_xy,
+        }
+
+    def get_xy(self) -> tuple[float, float]:
+        return self._stage.xy
+
+    def step_xy(self, dx: float, dy: float):
+        x, y = self._stage.xy
+        self._stage.xy = (x + dx, y + dy)
 
 
 class ValveController(QWidget):
