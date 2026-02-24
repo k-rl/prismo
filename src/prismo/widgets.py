@@ -262,11 +262,32 @@ class ValveController(QWidget):
         self._relay.post("set_valve", key, state)
 
     def button_stylesheet(self, state: str | int) -> str:
-        return (
-            f"background-color: {'green' if state == 'closed' else 'red'};"
-            + "margin: 0.5px;"
-            + "border-radius: 0px;"
-        )
+        if state == "closed":
+            return (
+                "background-color: #b0acaa;"
+                "border-style: inset;"
+                "border-width: 2px;"
+                "border-top-color: #606060;"
+                "border-left-color: #606060;"
+                "border-right-color: #f0ece8;"
+                "border-bottom-color: #f0ece8;"
+                "padding: 3px 2px 1px 4px;"
+                "margin: 0.5px;"
+                "border-radius: 0px;"
+            )
+        else:
+            return (
+                "background-color: #d4d0cc;"
+                "border-style: outset;"
+                "border-width: 2px;"
+                "border-top-color: #f0ece8;"
+                "border-left-color: #f0ece8;"
+                "border-right-color: #606060;"
+                "border-bottom-color: #606060;"
+                "padding: 1px 4px 3px 2px;"
+                "margin: 0.5px;"
+                "border-radius: 0px;"
+            )
 
 
 class ValveControllerServer:

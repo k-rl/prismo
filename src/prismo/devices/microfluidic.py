@@ -40,7 +40,7 @@ class ValveDriver:
 
     @property
     def valve_states(self) -> dict[str, list[str | int]]:
-        return {str(i): ["open", "closed"] for i in range(self._num_valves)}
+        return {str(i): ["closed", "open"] for i in range(self._num_valves)}
 
 
 class Valves:
@@ -224,10 +224,9 @@ class Chip:
         result: dict[str, list[str | int]] = {}
         for k, v in self._mapping.items():
             if isinstance(v, TreeValves):
-                states: list[str | int] = ["closed"]
+                states: list[str | int] = ["closed", "open"]
                 states.extend(v._labels_to_states.keys())
-                states.append("open")
                 result[k] = states
             else:
-                result[k] = ["open", "closed"]
+                result[k] = ["closed", "open"]
         return result
