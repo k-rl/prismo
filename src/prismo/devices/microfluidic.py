@@ -198,8 +198,15 @@ class Chip:
     def __getitem__(self, key: str) -> Literal["closed", "open"] | Valves:
         return self.__getattr__(key)
 
-    def __setitem__(self, key: str, state: Literal["closed", "open"]):
-        self.__setattr__(key, state)
+    def __setitem__(self, key: str, state: str | int):
+        if "[" in key:
+            name, rest = key.split("[", 1)
+            idx = int(rest.rstrip("]"))
+            v = self._mapping[name]
+            if isinstance(v, Valves):
+                v[idx] = state
+        else:
+            self.__setattr__(key, state)
 
     def close_all(self):
         for v in self.valves:
@@ -217,6 +224,8 @@ class Chip:
                 result[k] = v.state
             else:
                 result[k] = "closed" if v == "closed" else "open"
+                for i in range(len(v)):
+                    result[f"{k}[{i}]"] = v[i]
         return result
 
     @property
@@ -229,4 +238,6 @@ class Chip:
                 result[k] = states
             else:
                 result[k] = ["closed", "open"]
+                for i in range(len(v)):
+                    result[f"{k}[{i}]"] = ["closed", "open"]
         return result

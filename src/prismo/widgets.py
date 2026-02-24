@@ -263,11 +263,11 @@ class ValveController(QWidget):
 
     def button_stylesheet(self, state: str | int) -> str:
         if state == "closed":
-            bg =       "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1e3045, stop:1 #2a4060)"
+            bg = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1e3045, stop:1 #2a4060)"
             bg_hover = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #243850, stop:1 #305070)"
             border_tl, border_br = "#162335", "#3d6080"
         else:
-            bg =       "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a4f5c, stop:1 #30343c)"
+            bg = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4a4f5c, stop:1 #30343c)"
             bg_hover = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #545966, stop:1 #3a3e47)"
             border_tl, border_br = "#5a606e", "#1a1d22"
         return (
@@ -277,7 +277,7 @@ class ValveController(QWidget):
             f" border-style: solid; border-width: 1px; border-radius: 3px;"
             f" border-top-color: {border_tl}; border-left-color: {border_tl};"
             f" border-right-color: {border_br}; border-bottom-color: {border_br};"
-            f" padding: 3px 5px; margin: 1px;"
+            f" padding: 3px 1px; margin: 1px;"
             f"}}"
             f"QPushButton:hover {{ background-color: {bg_hover}; }}"
         )
