@@ -1,4 +1,5 @@
 import functools
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -271,8 +272,8 @@ class StageController(QWidget):
         super().__init__()
         self._relay = relay
         self._fast = False
-        self._step_slow = 5.0
-        self._step_fast = 50.0
+        self._step_slow = 10_000.0
+        self._step_fast = 200_000.0
 
         layout = QVBoxLayout(self)
 
@@ -308,27 +309,35 @@ class StageController(QWidget):
         right_btn.clicked.connect(lambda: self._step(self._step_size, 0))
         self._speed_btn.toggled.connect(self._toggle_speed)
 
-        self._timer = QTimer()
-        self._timer.timeout.connect(self._update_pos)
-        self._timer.start(100)
-
         self.setFocusPolicy(Qt.StrongFocus)
+
+        xy = self._relay.get("xy")
+        self._xy = list(xy)
+        self._last_sync = time.monotonic()
+        self._update_labels()
 
     @property
     def _step_size(self) -> float:
         return self._step_fast if self._fast else self._step_slow
 
     def _step(self, dx: float, dy: float):
+        now = time.monotonic()
+        if now - self._last_sync >= 2.0:
+            xy = self._relay.get("xy")
+            self._xy = list(xy)
+            self._last_sync = now
+        self._xy[0] += dx
+        self._xy[1] += dy
         self._relay.post("step_xy", dx, dy)
+        self._update_labels()
+
+    def _update_labels(self):
+        self._x_label.setText(f"x: {self._xy[0]:.0f}")
+        self._y_label.setText(f"y: {self._xy[1]:.0f}")
 
     def _toggle_speed(self, checked: bool):
         self._fast = checked
         self._speed_btn.setText("Fast" if checked else "Slow")
-
-    def _update_pos(self):
-        xy = self._relay.get("xy")
-        self._x_label.setText(f"x: {xy[0]:.1f}")
-        self._y_label.setText(f"y: {xy[1]:.1f}")
 
     def keyPressEvent(self, event):
         key = event.key()
