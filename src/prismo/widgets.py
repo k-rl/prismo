@@ -270,14 +270,28 @@ class StateControllerServer:
 class StageController(QWidget):
     _PAD_R = 50
     _THUMB_R = 16
+    _MAX_SPEED = 5.7459
 
     def __init__(self, relay: "Relay"):
         super().__init__()
         self._relay = relay
         self._thumb = QPointF(0.0, 0.0)
+        self._last_posted = QPointF(0.0, 0.0)
         self._dragging = False
         pad_size = (self._PAD_R + self._THUMB_R + 4) * 2
         self.setFixedSize(pad_size, pad_size)
+        self._timer = QTimer()
+        self._timer.timeout.connect(self._poll)
+        self._timer.start(100)
+
+    def _poll(self):
+        if self._thumb != self._last_posted:
+            self._last_posted = QPointF(self._thumb.x(), self._thumb.y())
+            self._relay.post(
+                "set_xy_speed",
+                self._thumb.x() * self._MAX_SPEED,
+                -self._thumb.y() * self._MAX_SPEED,
+            )
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -306,10 +320,9 @@ class StageController(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = False
             self._thumb = QPointF(0.0, 0.0)
+            self._last_posted = QPointF(0.0, 0.0)
             self._relay.post("set_xy_speed", 0.0, 0.0)
             self.update()
-
-    _MAX_SPEED = 5.7459
 
     def _move_thumb(self, pos):
         cx, cy = self.width() / 2, self.height() / 2
@@ -320,7 +333,6 @@ class StageController(QWidget):
             dx /= mag
             dy /= mag
         self._thumb = QPointF(dx, dy)
-        self._relay.post("set_xy_speed", dx * self._MAX_SPEED, -dy * self._MAX_SPEED)
         self.update()
 
 
