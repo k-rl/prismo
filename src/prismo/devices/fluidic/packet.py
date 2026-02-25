@@ -1,18 +1,22 @@
 import weakref
 from collections.abc import Buffer
 
-import serial
 from serial.tools import list_ports
+
+from ..ports import Port
+
+VID = 0x303A
+PID = 0x1001
 
 
 class PacketStream:
     def __init__(self, device_id: int, timeout_s: int = 1):
         device_found = False
-        for port in list_ports.comports():
-            if port.vid == 0x303A and port.pid == 0x1001:
-                self._socket = serial.Serial(port.device, baudrate=115200, timeout=timeout_s)
+        for p in list_ports.comports():
+            if p.vid == VID and p.pid == PID:
+                self._port = Port(port=p.device, baudrate=115200, timeout=timeout_s)
                 try:
-                    self._socket.reset_input_buffer()
+                    self._port.reset_input_buffer()
                     self.write(bytes([0]))
                     result = self.read()
                     if len(result) == 2 and result[0] == 0 and result[1] == device_id:
@@ -20,11 +24,10 @@ class PacketStream:
                         break
                 except Exception:
                     pass
-                self._socket.close()
+                self._port.close()
         if not device_found:
             raise ConnectionError(f"Could not find device with id {device_id}.")
 
-        # Make sure we close the socket when the object is garbage collected.
         weakref.finalize(self, self.close)
 
     def write(self, request: Buffer):
@@ -48,7 +51,7 @@ class PacketStream:
             out[offset_idx] = offset
             out.append(0)
 
-        self._socket.write(out)
+        self._port.write(bytes(out))
 
     def read(self) -> bytearray:
         size = 0
@@ -73,10 +76,10 @@ class PacketStream:
         return out
 
     def _timeout_read(self, size: int) -> bytes:
-        out = self._socket.read(size)
+        out = self._port.read(size)
         if len(out) < size:
             raise TimeoutError("Read timed out.")
         return out
 
     def close(self):
-        self._socket.close()
+        self._port.close()

@@ -35,9 +35,9 @@ def load(
         device = params.pop("device")
         match device:
             case "asi_stage":
-                devices.append(dev.asi.Stage(name, core, **params))
+                devices.append(dev.asi.Stage(name, **params))
             case "asi_zstage":
-                devices.append(dev.asi.Focus(name, core, **params))
+                devices.append(dev.asi.Focus(name, **params))
             case "bsi_camera":
                 devices.append(dev.bsi.Camera(name, core, **params))
             case "demo_camera":

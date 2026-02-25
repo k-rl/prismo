@@ -1,66 +1,84 @@
 import numpy as np
-from pymmcore import CMMCore
 
-from . import utils
+from .ports import Port
 
 VID = 0x10C4
 PID = 0xEA60
 
 
 class Stage:
-    def __init__(self, name: str, core: CMMCore, port: str | None = None):
+    def __init__(self, name: str, port: str | None = None):
         self.name = name
-        self._core = core
-        port = utils.load_port(core, vid=VID, pid=PID, port=port, timeout_ms=2000)
-        core.loadDevice(name, "ASIStage", "XYStage")
-        core.setProperty(name, "Port", port)
-        core.initializeDevice(name)
+        self._port = Port(VID, PID, port, baudrate=9600, timeout=2.0)
+
+    def _cmd(self, cmd: str) -> str:
+        self._port.write((cmd + "\r").encode())
+        response = self._port.readline().decode().strip()
+        if response.startswith(":N"):
+            raise RuntimeError(f"ASI error: {response}")
+        return response
 
     def wait(self):
-        self._core.waitForDevice(self.name)
+        while not self._cmd("/").startswith(":A"):
+            pass
+
+    def close(self):
+        self._port.close()
 
     @property
     def x(self) -> float:
-        return self._core.getXPosition(self.name)
+        resp = self._cmd("WHERE X")
+        return float(resp.split("X=")[1].split()[0])
 
     @x.setter
     def x(self, new_x: float):
-        self._core.setXYPosition(self.name, float(new_x), self.y)
+        self._cmd(f"MOVE X={float(new_x):.4f}")
 
     @property
     def y(self) -> float:
-        return self._core.getYPosition(self.name)
+        resp = self._cmd("WHERE Y")
+        return float(resp.split("Y=")[1].split()[0])
 
     @y.setter
     def y(self, new_y: float):
-        self._core.setXYPosition(self.name, self.x, float(new_y))
+        self._cmd(f"MOVE Y={float(new_y):.4f}")
 
     @property
     def xy(self) -> np.ndarray:
-        return np.array(self._core.getXYPosition(self.name))
+        resp = self._cmd("WHERE X Y")
+        x = float(resp.split("X=")[1].split()[0])
+        y = float(resp.split("Y=")[1].split()[0])
+        return np.array([x, y])
 
     @xy.setter
     def xy(self, new_xy: tuple[float, float]):
-        self._core.setXYPosition(self.name, float(new_xy[0]), float(new_xy[1]))
+        self._cmd(f"MOVE X={float(new_xy[0]):.4f} Y={float(new_xy[1]):.4f}")
 
 
 class Focus:
-    def __init__(self, name: str, core: CMMCore, port: str | None = None):
+    def __init__(self, name: str, port: str | None = None):
         self.name = name
-        self._core = core
-        port = utils.load_port(core, vid=VID, pid=PID, port=port)
-        core.loadDevice(name, "ASIStage", "ZStage")
-        core.setProperty(name, "Port", port)
-        core.setProperty(name, "Axis", "Z")
-        core.initializeDevice(name)
+        self._port = Port(VID, PID, port, baudrate=9600, timeout=2.0)
+
+    def _cmd(self, cmd: str) -> str:
+        self._port.write((cmd + "\r").encode())
+        response = self._port.readline().decode().strip()
+        if response.startswith(":N"):
+            raise RuntimeError(f"ASI error: {response}")
+        return response
 
     def wait(self):
-        self._core.waitForDevice(self.name)
+        while not self._cmd("/").startswith(":A"):
+            pass
+
+    def close(self):
+        self._port.close()
 
     @property
     def z(self) -> float:
-        return self._core.getPosition(self.name)
+        resp = self._cmd("WHERE Z")
+        return float(resp.split("Z=")[1].split()[0])
 
     @z.setter
     def z(self, new_z: float):
-        self._core.setPosition(self.name, float(new_z))
+        self._cmd(f"MOVE Z={float(new_z):.4f}")
