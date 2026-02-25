@@ -12,8 +12,7 @@ class Stage:
         self._port = Port(VID, PID, port, baudrate=9600, timeout=2.0)
 
     def _cmd(self, cmd: str) -> str:
-        self._port.write((cmd + "\r").encode())
-        response = self._port.readline().decode().strip()
+        response = self._port.write_readline((cmd + "\r").encode()).decode().strip()
         if response.startswith(":N"):
             raise RuntimeError(f"ASI error: {response}")
         return response
@@ -89,8 +88,7 @@ class Focus:
         self._port = Port(VID, PID, port, baudrate=9600, timeout=2.0)
 
     def _cmd(self, cmd: str) -> str:
-        self._port.write((cmd + "\r").encode())
-        response = self._port.readline().decode().strip()
+        response = self._port.write_readline((cmd + "\r").encode()).decode().strip()
         if response.startswith(":N"):
             raise RuntimeError(f"ASI error: {response}")
         return response

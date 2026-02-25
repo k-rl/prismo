@@ -45,6 +45,11 @@ class Port:
         with _locks[self._name]:
             return _serials[self._name].readline()
 
+    def write_readline(self, data: bytes) -> bytes:
+        with _locks[self._name]:
+            _serials[self._name].write(data)
+            return _serials[self._name].readline()
+
     def reset_input_buffer(self):
         with _locks[self._name]:
             _serials[self._name].reset_input_buffer()
