@@ -28,7 +28,7 @@ class Stage:
     @property
     def x(self) -> float:
         resp = self._cmd("WHERE X")
-        return float(resp.split("X=")[1].split()[0])
+        return float(resp.split(" ")[1])
 
     @x.setter
     def x(self, new_x: float):
@@ -37,7 +37,7 @@ class Stage:
     @property
     def y(self) -> float:
         resp = self._cmd("WHERE Y")
-        return float(resp.split("Y=")[1].split()[0])
+        return float(resp.split(" ")[1])
 
     @y.setter
     def y(self, new_y: float):
@@ -45,9 +45,8 @@ class Stage:
 
     @property
     def xy(self) -> np.ndarray:
-        resp = self._cmd("WHERE X Y")
-        x = float(resp.split("X=")[1].split()[0])
-        y = float(resp.split("Y=")[1].split()[0])
+        resp = self._cmd("WHERE X Y").split(" ")
+        x, y = float(resp[1]), float(resp[2])
         return np.array([x, y])
 
     @xy.setter
@@ -77,7 +76,7 @@ class Focus:
     @property
     def z(self) -> float:
         resp = self._cmd("WHERE Z")
-        return float(resp.split("Z=")[1].split()[0])
+        return float(resp.split(" ")[1])
 
     @z.setter
     def z(self, new_z: float):
