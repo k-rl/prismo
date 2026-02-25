@@ -53,6 +53,24 @@ class Stage:
     def xy(self, new_xy: tuple[float, float]):
         self._cmd(f"MOVE X={float(new_xy[0]):.4f} Y={float(new_xy[1]):.4f}")
 
+    @property
+    def x_speed(self) -> float:
+        resp = self._cmd("VE X?")
+        return float(resp.split("X=")[1].split()[0])
+
+    @x_speed.setter
+    def x_speed(self, speed: float):
+        self._cmd(f"VE X={float(speed)}")
+
+    @property
+    def y_speed(self) -> float:
+        resp = self._cmd("VE Y?")
+        return float(resp.split("Y=")[1].split()[0])
+
+    @y_speed.setter
+    def y_speed(self, speed: float):
+        self._cmd(f"VE Y={float(speed)}")
+
     def __iadd__(self, delta: tuple[float, float]) -> "Stage":
         self._cmd(f"MOVREL X={float(delta[0]):.4f} Y={float(delta[1]):.4f}")
         return self

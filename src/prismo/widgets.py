@@ -3,8 +3,8 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from qtpy.QtCore import Qt, QTimer
-from qtpy.QtGui import QDoubleValidator
+from qtpy.QtCore import Qt, QPointF, QTimer
+from qtpy.QtGui import QBrush, QColor, QDoubleValidator, QPainter, QPen
 from qtpy.QtWidgets import (
     QComboBox,
     QGridLayout,
@@ -268,89 +268,58 @@ class StateControllerServer:
 
 
 class StageController(QWidget):
+    _PAD_R = 50
+    _THUMB_R = 16
+
     def __init__(self, relay: "Relay"):
         super().__init__()
         self._relay = relay
-        self._fast = False
-        self._step_slow = 10_000.0
-        self._step_fast = 200_000.0
+        self._thumb = QPointF(0.0, 0.0)
+        self._dragging = False
+        pad_size = (self._PAD_R + self._THUMB_R + 4) * 2
+        self.setFixedSize(pad_size, pad_size)
 
-        layout = QVBoxLayout(self)
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        cx, cy = self.width() / 2, self.height() / 2
+        painter.setPen(QPen(QColor(80, 80, 80), 2))
+        painter.setBrush(QBrush(QColor(40, 40, 40)))
+        painter.drawEllipse(QPointF(cx, cy), self._PAD_R, self._PAD_R)
+        tx = cx + self._thumb.x() * self._PAD_R
+        ty = cy + self._thumb.y() * self._PAD_R
+        color = QColor(220, 220, 220) if self._dragging else QColor(130, 130, 130)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(color))
+        painter.drawEllipse(QPointF(tx, ty), self._THUMB_R, self._THUMB_R)
 
-        pos_layout = QHBoxLayout()
-        self._x_label = QLabel("x: ---")
-        self._y_label = QLabel("y: ---")
-        pos_layout.addWidget(self._x_label)
-        pos_layout.addStretch()
-        pos_layout.addWidget(self._y_label)
-        layout.addLayout(pos_layout)
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._move_thumb(event.pos())
 
-        btn_grid = QGridLayout()
-        btn_grid.setSpacing(2)
-        up_btn = QPushButton("↑")
-        down_btn = QPushButton("↓")
-        left_btn = QPushButton("←")
-        right_btn = QPushButton("→")
-        for btn in [up_btn, down_btn, left_btn, right_btn]:
-            btn.setFixedSize(40, 40)
-        btn_grid.addWidget(up_btn, 0, 1)
-        btn_grid.addWidget(left_btn, 1, 0)
-        btn_grid.addWidget(right_btn, 1, 2)
-        btn_grid.addWidget(down_btn, 2, 1)
-        layout.addLayout(btn_grid)
+    def mouseMoveEvent(self, event):
+        if self._dragging:
+            self._move_thumb(event.pos())
 
-        self._speed_btn = QPushButton("Slow")
-        self._speed_btn.setCheckable(True)
-        layout.addWidget(self._speed_btn)
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = False
+            self._thumb = QPointF(0.0, 0.0)
+            self._relay.post("set_xy_speed", 0.0, 0.0)
+            self.update()
 
-        up_btn.clicked.connect(lambda: self._step(0, self._step_size))
-        down_btn.clicked.connect(lambda: self._step(0, -self._step_size))
-        left_btn.clicked.connect(lambda: self._step(-self._step_size, 0))
-        right_btn.clicked.connect(lambda: self._step(self._step_size, 0))
-        self._speed_btn.toggled.connect(self._toggle_speed)
-
-        self.setFocusPolicy(Qt.StrongFocus)
-
-        xy = self._relay.get("xy")
-        self._xy = list(xy)
-        self._last_sync = time.monotonic()
-        self._update_labels()
-
-    @property
-    def _step_size(self) -> float:
-        return self._step_fast if self._fast else self._step_slow
-
-    def _step(self, dx: float, dy: float):
-        now = time.monotonic()
-        if now - self._last_sync >= 2.0:
-            xy = self._relay.get("xy")
-            self._xy = list(xy)
-            self._last_sync = now
-        self._xy[0] += dx
-        self._xy[1] += dy
-        self._relay.post("step_xy", dx, dy)
-        self._update_labels()
-
-    def _update_labels(self):
-        self._x_label.setText(f"x: {self._xy[0]:.0f}")
-        self._y_label.setText(f"y: {self._xy[1]:.0f}")
-
-    def _toggle_speed(self, checked: bool):
-        self._fast = checked
-        self._speed_btn.setText("Fast" if checked else "Slow")
-
-    def keyPressEvent(self, event):
-        key = event.key()
-        if key == Qt.Key_Up:
-            self._step(0, self._step_size)
-        elif key == Qt.Key_Down:
-            self._step(0, -self._step_size)
-        elif key == Qt.Key_Left:
-            self._step(-self._step_size, 0)
-        elif key == Qt.Key_Right:
-            self._step(self._step_size, 0)
-        else:
-            super().keyPressEvent(event)
+    def _move_thumb(self, pos):
+        cx, cy = self.width() / 2, self.height() / 2
+        dx = (pos.x() - cx) / self._PAD_R
+        dy = (pos.y() - cy) / self._PAD_R
+        mag = (dx**2 + dy**2) ** 0.5
+        if mag > 1.0:
+            dx /= mag
+            dy /= mag
+        self._thumb = QPointF(dx, dy)
+        self._relay.post("set_xy_speed", dx, -dy)  # flip y: screen down = stage negative y
+        self.update()
 
 
 class StageControllerServer:
@@ -359,16 +328,12 @@ class StageControllerServer:
 
     def routes(self, path: str) -> dict[str, Callable[..., Any]]:
         return {
-            path + "/xy": self.get_xy,
-            path + "/step_xy": self.step_xy,
+            path + "/set_xy_speed": self.set_xy_speed,
         }
 
-    def get_xy(self) -> tuple[float, float]:
-        return self._stage.xy
-
-    def step_xy(self, dx: float, dy: float):
-        x, y = self._stage.xy
-        self._stage.xy = (x + dx, y + dy)
+    def set_xy_speed(self, vx: float, vy: float):
+        self._stage.x_speed = vx
+        self._stage.y_speed = vy
 
 
 class ValveController(QWidget):
