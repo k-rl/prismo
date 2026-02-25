@@ -53,6 +53,14 @@ class Stage:
     def xy(self, new_xy: tuple[float, float]):
         self._cmd(f"MOVE X={float(new_xy[0]):.4f} Y={float(new_xy[1]):.4f}")
 
+    def __iadd__(self, delta: tuple[float, float]) -> "Stage":
+        self._cmd(f"MOVREL X={float(delta[0]):.4f} Y={float(delta[1]):.4f}")
+        return self
+
+    def __isub__(self, delta: tuple[float, float]) -> "Stage":
+        self._cmd(f"MOVREL X={-float(delta[0]):.4f} Y={-float(delta[1]):.4f}")
+        return self
+
 
 class Focus:
     def __init__(self, name: str, port: str | None = None):
@@ -81,3 +89,11 @@ class Focus:
     @z.setter
     def z(self, new_z: float):
         self._cmd(f"MOVE Z={float(new_z):.4f}")
+
+    def __iadd__(self, delta: float) -> "Focus":
+        self._cmd(f"MOVREL Z={float(delta):.4f}")
+        return self
+
+    def __isub__(self, delta: float) -> "Focus":
+        self._cmd(f"MOVREL Z={-float(delta):.4f}")
+        return self
