@@ -71,6 +71,9 @@ class Stage:
     def y_speed(self, speed: float):
         self._cmd(f"VE Y={float(speed)}")
 
+    def set_xy_speed(self, vx: float, vy: float):
+        self._cmd(f"VE X={float(vx)} Y={float(vy)}")
+
     def __iadd__(self, delta: tuple[float, float]) -> "Stage":
         self._cmd(f"MOVREL X={float(delta[0]):.4f} Y={float(delta[1]):.4f}")
         return self

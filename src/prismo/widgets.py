@@ -309,6 +309,8 @@ class StageController(QWidget):
             self._relay.post("set_xy_speed", 0.0, 0.0)
             self.update()
 
+    _MAX_SPEED = 5.7459
+
     def _move_thumb(self, pos):
         cx, cy = self.width() / 2, self.height() / 2
         dx = (pos.x() - cx) / self._PAD_R
@@ -318,7 +320,7 @@ class StageController(QWidget):
             dx /= mag
             dy /= mag
         self._thumb = QPointF(dx, dy)
-        self._relay.post("set_xy_speed", dx, -dy)  # flip y: screen down = stage negative y
+        self._relay.post("set_xy_speed", dx * self._MAX_SPEED, -dy * self._MAX_SPEED)
         self.update()
 
 
@@ -332,8 +334,10 @@ class StageControllerServer:
         }
 
     def set_xy_speed(self, vx: float, vy: float):
-        self._stage.x_speed = vx
-        self._stage.y_speed = vy
+        try:
+            self._stage.set_xy_speed(vx, vy)
+        except Exception:
+            pass
 
 
 class ValveController(QWidget):
