@@ -14,23 +14,25 @@ class Port:
     def __init__(
         self, vid: int | None = None, pid: int | None = None, port: str | None = None, **kwargs
     ):
+        if port is None:
+            if vid is None or pid is None:
+                raise ValueError("Either port or both vid and pid must be provided.")
+            for p in list_ports.comports():
+                if p.vid == vid and p.pid == pid:
+                    port = p.device
+                    break
+        if port is None:
+            raise ValueError(f"No port found with {vid=:#x} and {pid=:#x}")
+
         with _class_lock:
-            if port is None:
-                if vid is None or pid is None:
-                    raise ValueError("Either port or both vid and pid must be provided.")
-                for p in list_ports.comports():
-                    if p.vid == vid and p.pid == pid:
-                        port = p.device
-                        break
-                if port is None:
-                    raise ValueError(f"No port found with {vid=:#x} and {pid=:#x}")
             if port not in _serials:
                 _serials[port] = serial.Serial(port, **kwargs)
                 _refcounts[port] = 0
                 _locks[port] = threading.Lock()
             _refcounts[port] += 1
-            self._name = port
-            self._closed = False
+
+        self._name = port
+        self._closed = False
         weakref.finalize(self, self.close)
 
     def write(self, data: bytes):
