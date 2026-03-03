@@ -48,10 +48,11 @@ class RetraLight:
         self._core.waitForDevice(self.name)
 
     @property
-    def state(self) -> int:
+    def state(self) -> float:
         return int(self._core.getProperty(self.name, "UV340_Intensity"))
 
     @state.setter
-    def state(self, new_state: int):
-        self._core.setProperty(self.name, "UV340", 1)
+    def state(self, new_state: float):
+        self._core.setProperty(self.name, "UV340", new_state > 0.0)
+        self._core.setShutterOpen(self.name, new_state > 0.0)
         self._core.setProperty(self.name, "UV340_Intensity", new_state)
