@@ -40,7 +40,7 @@ class RetraLight:
         self._core = core
 
         core.loadDevice(name, "Lumencor", "LightEngine")
-        core.setProperty(name, "Model", "Gen3")
+        core.setProperty(name, "Model", "GEN3")
         core.setProperty(name, "Connection", ip)
         core.initializeDevice(name)
 
