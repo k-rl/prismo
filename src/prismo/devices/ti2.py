@@ -86,6 +86,41 @@ class LightPath:
             self._core.setStateLabel(self.name, new_state)
 
 
+class LightSelector:
+    def __init__(self, name: str, core: CMMCore, states: list[str] | None = None):
+        self.name = name
+        self._core = core
+        if "ti2_scope" not in core.getLoadedDevices():
+            core.loadDevice("ti2_scope", "NikonTi2", "Ti2-E__0")
+            core.initializeDevice("ti2_scope")
+        core.loadDevice(name, "NikonTi2", "LappMainBranch1")
+        core.setParentLabel(name, "ti_scope")
+        core.initializeDevice(name)
+
+        self.states = ["left", "right"] if states is None else states
+        if len(self.states) != 2:
+            raise ValueError(f"{name} requires 4 states (not {len(self.states)}) to be specified.")
+        for i, state in enumerate(self.states):
+            self._core.defineStateLabel(name, i, state)
+
+    def wait(self):
+        self._core.waitForDevice(self.name)
+
+    @property
+    def state(self) -> int | str:
+        if isinstance(self.states[0], int):
+            return self._core.getState(self.name)
+        else:
+            return self._core.getStateLabel(self.name)
+
+    @state.setter
+    def state(self, new_state: int | str):
+        if isinstance(new_state, int):
+            self._core.setState(self.name, new_state)
+        else:
+            self._core.setStateLabel(self.name, new_state)
+
+
 class Objective:
     def __init__(
         self,
