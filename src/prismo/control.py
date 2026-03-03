@@ -67,10 +67,12 @@ def load(
             case "microfluidic_valves":
                 devices.append(dev.microfluidic.ValveDriver(name, **params))
                 valves = devices[-1]
+            case "retra_light":
+                devices.append(dev.lumencor.RetraLight(name, core, **params))
             case "sola_light":
-                devices.append(dev.lumencor.Light(name, core, version="sola", **params))
+                devices.append(dev.lumencor.SolaLight(name, core, version="sola", **params))
             case "spectra_light":
-                devices.append(dev.lumencor.Light(name, core, version="spectra", **params))
+                devices.append(dev.lumencor.SolaLight(name, core, version="spectra", **params))
             case "ti_filter1":
                 devices.append(dev.ti.Filter(name, core, filter=1, **params))
             case "ti_filter2":
