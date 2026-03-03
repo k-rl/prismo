@@ -49,10 +49,10 @@ class RetraLight:
 
     @property
     def state(self) -> float:
-        return int(self._core.getProperty(self.name, "UV340_Intensity"))
+        return float(self._core.getProperty(self.name, "UV340_Intensity")) / 10.0
 
     @state.setter
     def state(self, new_state: float):
         self._core.setProperty(self.name, "UV340", new_state > 0.0)
         self._core.setShutterOpen(self.name, new_state > 0.0)
-        self._core.setProperty(self.name, "UV340_Intensity", new_state)
+        self._core.setProperty(self.name, "UV340_Intensity", new_state * 10.0)
