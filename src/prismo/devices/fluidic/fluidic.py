@@ -281,15 +281,19 @@ class Sipper:
 
     def sip(self, well: str):
         # Move the sipper up.
+        self.rpm = 0.0
         self.well = ""
         # Clear out the line of any liquid.
         self.valve = "waste"
-        self.rpm = self._sip_rpm
+        self.rpm = 60.0
         while not self.air:
             time.sleep(0.01)
+        time.sleep(2)
+        self.rpm = 0.0
         # Move to the new well and sip liquid.
         self.well = well
         self.valve = "flow"
+        self.rpm = self._sip_rpm
 
     def close(self):
         self._socket.close()
