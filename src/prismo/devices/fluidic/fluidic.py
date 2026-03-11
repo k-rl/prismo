@@ -283,14 +283,19 @@ class Sipper:
         # Move the sipper up.
         self.rpm = 0.0
         self.well = ""
-        # Clear out the line of any liquid.
+        # Aspirate a small bubble.
+        self.rpm = 10.0
+        time.sleep(2)
+        self.rpm = 0.0
+        # Clear out the line of any liquid until we hit the bubble.
         self.valve = "waste"
         self.rpm = 60.0
         while not self.air:
             time.sleep(0.01)
+        # Clear some more liquid out so the flow sensor - valve junction is our new liquid.
         time.sleep(2)
-        self.rpm = 0.0
         # Move to the new well and sip liquid.
+        self.rpm = 0.0
         self.well = well
         self.valve = "flow"
         self.rpm = self._sip_rpm
