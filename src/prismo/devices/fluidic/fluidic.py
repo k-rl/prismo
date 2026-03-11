@@ -26,11 +26,8 @@ class Code(IntEnum):
     GET_FLOW_HISTORY = 0x0B
     GET_VALVE = 0x0C
     SET_VALVE = 0x0D
-    GET_FLUSH_TIME = 0x0E
-    SET_FLUSH_TIME = 0x0F
-    GET_FLUSH_RPM = 0x10
-    SET_FLUSH_RPM = 0x11
-    GET_FLUSHING = 0x12
+    GET_STOP_ON_AIR = 0x0E
+    SET_STOP_ON_AIR = 0x0F
     # CNC codes.
     HOME = 0x80
     IS_HOMING = 0x81
@@ -53,8 +50,6 @@ class Sipper:
         cols: int = 12,
         well_dist: float = 9.0,
         sip_rpm: float = 1.0,
-        flush_rpm: float = 60.0,
-        flush_time: float = 5.0,
     ):
         self.name = name
         self._socket = packet.PacketStream(device_id=0)
@@ -64,8 +59,6 @@ class Sipper:
         self._cols = cols
         self._well_dist = well_dist
         self._sip_rpm = sip_rpm
-        self.flush_time = flush_time
-        self.flush_rpm = flush_rpm
         self.rms_amps = 0.3
         self.home()
 
@@ -156,34 +149,16 @@ class Sipper:
         self._read(Code.SET_VALVE)
 
     @property
-    def flush_time(self) -> float:
-        request = struct.pack(">B", Code.GET_FLUSH_TIME)
+    def stop_on_air(self) -> bool:
+        request = struct.pack(">B", Code.GET_STOP_ON_AIR)
         self._socket.write(request)
-        return self._read(Code.GET_FLUSH_TIME, "d")
+        return self._read(Code.GET_STOP_ON_AIR, "?")
 
-    @flush_time.setter
-    def flush_time(self, seconds: float):
-        request = struct.pack(">Bd", Code.SET_FLUSH_TIME, seconds)
+    @stop_on_air.setter
+    def stop_on_air(self, enable: bool):
+        request = struct.pack(">B?", Code.SET_STOP_ON_AIR, enable)
         self._socket.write(request)
-        self._read(Code.SET_FLUSH_TIME)
-
-    @property
-    def flush_rpm(self) -> float:
-        request = struct.pack(">B", Code.GET_FLUSH_RPM)
-        self._socket.write(request)
-        return -self._read(Code.GET_FLUSH_RPM, "d")
-
-    @flush_rpm.setter
-    def flush_rpm(self, rpm: float):
-        request = struct.pack(">Bd", Code.SET_FLUSH_RPM, -rpm)
-        self._socket.write(request)
-        self._read(Code.SET_FLUSH_RPM)
-
-    @property
-    def flushing(self) -> bool:
-        request = struct.pack(">B", Code.GET_FLUSHING)
-        self._socket.write(request)
-        return self._read(Code.GET_FLUSHING, "?")
+        self._read(Code.SET_STOP_ON_AIR)
 
     def home(self):
         request = struct.pack(">B", Code.HOME)
@@ -309,16 +284,12 @@ class Sipper:
         self.well = ""
         # Clear out the line of any liquid.
         self.valve = "waste"
-        self.rpm = self.flush_rpm
+        self.rpm = self._sip_rpm
         while not self.air:
             time.sleep(0.01)
         # Move to the new well and sip liquid.
         self.well = well
-        self.rpm = self._sip_rpm
         self.valve = "flow"
-        # Wait until the MCU autoflushes until we get to this well's liquid.
-        while self.flushing:
-            time.sleep(0.01)
 
     def close(self):
         self._socket.close()
