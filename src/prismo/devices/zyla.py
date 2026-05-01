@@ -14,6 +14,9 @@ class Camera:
         self._flip = flip
         core.loadDevice(name, "AndorSDK3", "Andor sCMOS Camera")
         core.initializeDevice(name)
+        core.setProperty(
+            name, "Sensitivity/DynamicRange", "16-bit (low noise & high well capacity)"
+        )
 
     def snap(self) -> np.ndarray:
         self._core.setCameraDevice(self.name)
