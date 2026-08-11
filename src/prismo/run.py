@@ -1,3 +1,4 @@
+import shutil
 import threading
 import warnings
 from collections.abc import Callable, Iterator
@@ -58,6 +59,25 @@ def live(ctrl: Control) -> Session:
     return session
 
 
+def _write_acquisition(
+    file: str, session: Session, acq_iter: Iterator[Any]
+) -> Iterator[None]:
+    """Write each step to a LocalStore, then finalize to a zip on exit."""
+    store = zr.storage.LocalStore(file)
+    try:
+        for _ in acq_iter:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="Consolidated metadata")
+                for name, xp in session.arrays.items():
+                    xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
+                        store, group=name, compute=False, mode="a"
+                    )
+            yield
+    finally:
+        shutil.make_archive(file, "zip", root_dir=file)
+        shutil.rmtree(file)
+
+
 def acq(ctrl: Control, file: str, acq_func: Callable[[Session], Iterator[Any]]) -> Session:
     widgets, widget_routes = init_widgets(ctrl)
     session = Session(
@@ -69,15 +89,7 @@ def acq(ctrl: Control, file: str, acq_func: Callable[[Session], Iterator[Any]]) 
 
     @session.worker
     def acq():
-        store = zr.storage.LocalStore(file)
-        for _ in acq_func(session):
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message="Consolidated metadata")
-                for name, xp in session.arrays.items():
-                    xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
-                        store, group=name, compute=False, mode="a"
-                    )
-            yield
+        yield from _write_acquisition(file, session, acq_func(session))
 
     session.route("arrays", lambda: set(session.arrays.keys()))
     for name, func in widget_routes.items():
@@ -111,16 +123,8 @@ def multi_acq(
             tile[:] = ctrl.snap()
             yield
 
-        store = zr.storage.LocalStore(file)
         assert pos[0] is not None
-        for _ in acq_func(session, pos[0]):
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message="Consolidated metadata")
-                for name, xp in session.arrays.items():
-                    xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
-                        store, group=name, compute=False, mode="a"
-                    )
-            yield
+        yield from _write_acquisition(file, session, acq_func(session, pos[0]))
 
     @session.route("start_acq")
     def start_acq(xys):
@@ -171,15 +175,7 @@ def tiled_acq(
         else:
             xs, ys = tile_coords(ctrl, top_left, bot_right, overlap)
 
-        store = zr.storage.LocalStore(file)
-        for _ in acq_func(session, xs, ys):
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message="Consolidated metadata")
-                for name, xp in session.arrays.items():
-                    xp.to_dataset(promote_attrs=True, name="tile").to_zarr(
-                        store, group=name, compute=False, mode="a"
-                    )
-            yield
+        yield from _write_acquisition(file, session, acq_func(session, xs, ys))
 
     @session.route("start_acq")
     def start_acq(top_left, bot_right):
