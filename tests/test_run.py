@@ -1,11 +1,18 @@
+import os
 import time
 from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
 import xarray as xr
+import zarr as zr
 
 from prismo.run import acq, run, tile_coords, tiled_acq
+
+
+def open_output(path, group):
+    # Acquisitions get finalized into a zip next to the directory they were written to.
+    return xr.open_zarr(zr.storage.ZipStore(path + ".zip", mode="r"), group=group)
 
 
 @pytest.fixture
@@ -110,7 +117,7 @@ def test_acq_writes_data_to_zarr(tmp_path, mock_ctrl):
         session = acq(mock_ctrl, zarr_path, my_acq)
         session.join()
 
-    ds = xr.open_zarr(zarr_path, group="data")
+    ds = open_output(zarr_path, "data")
     np.testing.assert_array_equal(ds["tile"][0], frame0)
     np.testing.assert_array_equal(ds["tile"][1], frame1)
 
@@ -131,10 +138,27 @@ def test_acq_writes_multiple_arrays(tmp_path, mock_ctrl):
         session = acq(mock_ctrl, zarr_path, my_acq)
         session.join()
 
-    gfp_ds = xr.open_zarr(zarr_path, group="gfp")
-    rfp_ds = xr.open_zarr(zarr_path, group="rfp")
+    gfp_ds = open_output(zarr_path, "gfp")
+    rfp_ds = open_output(zarr_path, "rfp")
     np.testing.assert_array_equal(gfp_ds["tile"][0], gfp_data)
     np.testing.assert_array_equal(rfp_ds["tile"][0], rfp_data)
+
+
+def test_acq_arrays_readable_after_finalize(tmp_path, mock_ctrl):
+    zarr_path = str(tmp_path / "test.zarr")
+    frame = np.arange(100 * 100, dtype=np.uint16).reshape(100, 100)
+
+    def my_acq(session):
+        arr = session.array("data", time=1)
+        arr[{"time": 0}] = frame
+        yield
+
+    with patch("prismo.run.init_widgets", return_value=({}, {})):
+        session = acq(mock_ctrl, zarr_path, my_acq)
+        session.join()
+
+    assert not os.path.exists(zarr_path)
+    np.testing.assert_array_equal(session.arrays["data"][0], frame)
 
 
 def test_tiled_acq_passes_correct_coordinates(tmp_path, mock_ctrl):
@@ -172,7 +196,7 @@ def test_tiled_acq_writes_tiled_data(tmp_path, mock_ctrl):
         )
         session.join()
 
-    ds = xr.open_zarr(zarr_path, group="tiles")
+    ds = open_output(zarr_path, "tiles")
     result = ds["tile"]
 
     assert result.shape == (3, 3, 100, 100)
@@ -200,7 +224,7 @@ def test_acq_saves_coordinates_and_attrs(tmp_path, mock_ctrl):
         session = acq(mock_ctrl, zarr_path, my_acq)
         session.join()
 
-    ds = xr.open_zarr(zarr_path, group="data")
+    ds = open_output(zarr_path, "data")
     result = ds["tile"]
 
     assert list(result.coords["channel"].values) == channels

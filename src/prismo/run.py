@@ -1,9 +1,12 @@
 import shutil
 import threading
 import warnings
+import zipfile
 from collections.abc import Callable, Iterator
+from pathlib import Path
 from typing import Any, Concatenate
 
+import dask.array as da
 import dill
 import numpy as np
 import zarr as zr
@@ -59,9 +62,7 @@ def live(ctrl: Control) -> Session:
     return session
 
 
-def _write_acquisition(
-    file: str, session: Session, acq_iter: Iterator[Any]
-) -> Iterator[None]:
+def _write_acquisition(file: str, session: Session, acq_iter: Iterator[Any]) -> Iterator[None]:
     """Write each step to a LocalStore, then finalize to a zip on exit."""
     store = zr.storage.LocalStore(file)
     try:
@@ -74,7 +75,15 @@ def _write_acquisition(
                     )
             yield
     finally:
-        shutil.make_archive(file, "zip", root_dir=file)
+        # Don't deflate when creating zip since it's already blosc-compressed
+        with zipfile.ZipFile(f"{file}.zip", "w", zipfile.ZIP_STORED) as zf:
+            for path in sorted(Path(file).rglob("*")):
+                if path.is_file():
+                    zf.write(path, path.relative_to(file).as_posix())
+        # Reopen from the zip so it's still readable after the directory is gone
+        zip_store = zr.storage.ZipStore(f"{file}.zip", mode="r")
+        for name, xp in session.arrays.items():
+            xp.data = da.from_zarr(zr.open_array(zip_store, path=f"{name}/tile"))
         shutil.rmtree(file)
 
 
