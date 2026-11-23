@@ -1,7 +1,9 @@
+import os
 from collections.abc import Callable
 from typing import Any
 
 import xarray as xr
+import zarr as zr
 from napari import Viewer
 from qtpy.QtCore import QTimer
 
@@ -43,6 +45,7 @@ class AcquisitionView:
         self._viewer = viewer
         self._relay = relay
         self._file = file
+        self._store = file
         self._live_timer = QTimer()
         self._refresh_timer = QTimer()
         self._arrays: set[str] = set()
@@ -87,13 +90,43 @@ class AcquisitionView:
         self._refresh_timer.start(1000)
 
     def refresh(self):
+        zip_file = f"{self._file}.zip"
+        finished = not os.path.isdir(self._file) and os.path.isfile(zip_file)
+        if finished:
+            # The acquisition is done and zipped, so swap every layer over to the zip in place
+            # (keeping contrast, sliders, zoom etc.). Nothing changes after this so stop polling.
+            self._refresh_timer.stop()
+            self._store = zr.storage.ZipStore(zip_file, mode="r")
+            for arr, old in self._imgs.items():
+                xp = xr.open_zarr(self._store, group=arr)
+                xp = xp["tile"].assign_attrs(xp.attrs)
+                img = tiles_to_image(xp)
+                img = img.expand_dims([d for d in old.dims if d not in img.dims])
+                img = img.transpose(*old.dims)
+                layers = {arr: img}
+                if "channel" in img.dims:
+                    layers = {
+                        f"{arr}: {c}": img.sel(channel=c) for c in img.coords["channel"].values
+                    }
+                for name, data in layers.items():
+                    if name in self._viewer.layers:  # The user may have deleted the layer.
+                        self._viewer.layers[name].data = data
+                self._imgs[arr] = img
+
         arrays = self._relay.get("arrays")
-        new_arrays = arrays - self._arrays
-        self._arrays = arrays.union(self._arrays)
-        for arr in new_arrays:
-            xp = xr.open_zarr(self._file, group=arr)
-            xp = xp["tile"].assign_attrs(xp.attrs)
-            img = tiles_to_image(xp)
+        for arr in arrays - self._arrays:
+            try:
+                xp = xr.open_zarr(self._store, group=arr)
+                xp = xp["tile"].assign_attrs(xp.attrs)
+                img = tiles_to_image(xp)
+            except FileNotFoundError:
+                # The directory is being removed after zipping; pick this up from the zip next tick.
+                continue
+            if not finished and set(xp.dims) <= {"channel", "y", "x"}:
+                # A single (possibly multichannel) image only gets shown once it's complete in
+                # the zip, rather than populating live.
+                continue
+            self._arrays.add(arr)
 
             layer_names = arr
             if "channel" in img.dims:
